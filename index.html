@@ -1,0 +1,2892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Drawing Game Simulator</title>
+  <style>
+    :root {
+      --bg: #10161f;
+      --panel: rgba(18, 27, 40, 0.88);
+      --panel-strong: #152131;
+      --line: rgba(255, 255, 255, 0.12);
+      --line-strong: rgba(255, 255, 255, 0.22);
+      --ink: #f8f1e5;
+      --muted: #a9b3c7;
+      --accent: #ff8f3d;
+      --accent-soft: rgba(255, 143, 61, 0.18);
+      --accent-2: #5fd8c9;
+      --danger: #ff6e6e;
+      --ok: #89f09b;
+      --shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+      --radius: 20px;
+      --mono: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+      --sans: "Avenir Next", "Segoe UI", "Trebuchet MS", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--sans);
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(95, 216, 201, 0.14), transparent 28%),
+        radial-gradient(circle at top right, rgba(255, 143, 61, 0.16), transparent 28%),
+        linear-gradient(180deg, #0d141c 0%, #121a26 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 28px 28px;
+      opacity: 0.35;
+    }
+
+    .shell {
+      width: min(1480px, calc(100vw - 32px));
+      margin: 20px auto;
+      display: grid;
+      grid-template-columns: minmax(0, 1.85fr) minmax(360px, 0.95fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      position: relative;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+
+    .screen-panel {
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .panel-title {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .eyebrow {
+      letter-spacing: 0.18em;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--accent-2);
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: var(--muted);
+      max-width: 48ch;
+      line-height: 1.4;
+    }
+
+    .stopwatch-card {
+      min-width: 220px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02)),
+        var(--panel-strong);
+    }
+
+    .stopwatch-label {
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stopwatch-value {
+      font-family: var(--mono);
+      font-size: 28px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .screen-wrap {
+      position: relative;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--line-strong);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+        #0b1017;
+    }
+
+    #screen {
+      display: block;
+      width: 100%;
+      height: auto;
+      background: #0b1017;
+    }
+
+    .screen-caption {
+      padding: 12px 14px 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .sidebar {
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .card {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.012)),
+        var(--panel-strong);
+    }
+
+    .card h2 {
+      font-size: 15px;
+      letter-spacing: 0.02em;
+      margin-bottom: 10px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      color: var(--muted);
+    }
+
+    input[type="file"],
+    input[type="range"],
+    button,
+    select {
+      width: 100%;
+    }
+
+    input[type="file"] {
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px dashed var(--line-strong);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--ink);
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 12px 14px;
+      background: linear-gradient(180deg, #ff9a54 0%, #ff7d25 100%);
+      color: #1a140f;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
+      box-shadow: 0 10px 24px rgba(255, 125, 37, 0.28);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--ink);
+      box-shadow: none;
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    button:not(:disabled):hover {
+      transform: translateY(-1px);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .tiny-help {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .stat-label {
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .status-good {
+      color: var(--ok);
+    }
+
+    .status-warn {
+      color: var(--accent);
+    }
+
+    .status-bad {
+      color: var(--danger);
+    }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .preview-card {
+      border-radius: 14px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .preview-card h3 {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .preview-card canvas {
+      width: 100%;
+      display: block;
+      border-radius: 12px;
+      background:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.05) 75%),
+        linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%, transparent 75%, rgba(255, 255, 255, 0.05) 75%);
+      background-size: 12px 12px;
+      background-position: 0 0, 6px 6px;
+      image-rendering: pixelated;
+    }
+
+    .palette-swatches {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+      gap: 8px;
+    }
+
+    .swatch {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .swatch::after {
+      content: attr(data-count);
+      position: absolute;
+      inset: auto 4px 4px auto;
+      padding: 2px 4px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.45);
+      color: white;
+      font-size: 10px;
+      font-family: var(--mono);
+    }
+
+    .controller-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .controller-cluster {
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+    }
+
+    .dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 42px);
+      grid-template-rows: repeat(3, 42px);
+      gap: 4px;
+    }
+
+    .face-buttons {
+      position: relative;
+      width: 136px;
+      height: 136px;
+    }
+
+    .shoulder-grid {
+      width: 100%;
+    }
+
+    .shoulder-grid .button-indicator {
+      width: 100%;
+    }
+
+    .button-indicator {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--ink);
+      user-select: none;
+    }
+
+    .button-indicator.circle {
+      position: absolute;
+      border-radius: 999px;
+    }
+
+    .button-indicator.active {
+      background: linear-gradient(180deg, #ff9e62, #ff7f2d);
+      color: #20160c;
+      border-color: rgba(255, 255, 255, 0.3);
+      box-shadow: 0 0 0 4px rgba(255, 143, 61, 0.18);
+    }
+
+    .analog-box {
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      display: grid;
+      gap: 10px;
+    }
+
+    .stick-pad {
+      width: 132px;
+      height: 132px;
+      margin: 0 auto;
+      position: relative;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.015)),
+        rgba(7, 11, 17, 0.75);
+    }
+
+    .stick-pad::before,
+    .stick-pad::after {
+      content: "";
+      position: absolute;
+      inset: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      transform: translate(-50%, -50%);
+    }
+
+    .stick-pad::before {
+      width: 1px;
+      height: calc(100% - 24px);
+    }
+
+    .stick-pad::after {
+      height: 1px;
+      width: calc(100% - 24px);
+    }
+
+    .stick-dot {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, #81fff2, #2fd7c3);
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 6px rgba(47, 215, 195, 0.12);
+    }
+
+    .input-log {
+      display: grid;
+      gap: 6px;
+      max-height: 192px;
+      overflow: auto;
+      padding-right: 6px;
+    }
+
+    .log-line {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 8px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .footer-note {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+    }
+
+    @media (max-width: 1160px) {
+      .shell {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="panel screen-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <div class="eyebrow">Standalone HTML Simulation</div>
+          <h1>Drawing Game Playback Lab</h1>
+          <p class="subtitle">
+            Upload an image, quantize it to a reduced palette, and watch the simulator reproduce the controller inputs,
+            menu actions, cursor movement, outlining, bucket fills, and elapsed drawing time on a 1280x720 virtual screen.
+          </p>
+        </div>
+        <div class="stopwatch-card">
+          <div class="stopwatch-label">Stopwatch</div>
+          <div class="stopwatch-value" id="stopwatch">00:00.00</div>
+        </div>
+      </div>
+      <div class="screen-wrap">
+        <canvas id="screen" width="1280" height="720"></canvas>
+      </div>
+      <div class="screen-caption">
+        <div class="chip" id="captionTool">Active tool: Pen</div>
+        <div class="chip" id="captionMenu">Menu: Canvas</div>
+        <div class="chip" id="captionColor">Color: #000000</div>
+        <div class="chip" id="captionProgress">Progress: Waiting for image</div>
+      </div>
+    </section>
+
+    <aside class="panel sidebar">
+      <section class="card">
+        <h2>Image Setup</h2>
+        <div class="stack">
+          <div class="field">
+            <label for="imageInput">Choose Image</label>
+            <input id="imageInput" type="file" accept="image/*">
+          </div>
+          <div class="field">
+            <label for="colorCount">Palette Size <span id="colorCountValue">8</span></label>
+            <input id="colorCount" type="range" min="2" max="24" step="1" value="8">
+          </div>
+          <div class="field">
+            <label for="speedSelect">Playback Speed</label>
+            <select id="speedSelect">
+              <option value="1">1x real time</option>
+              <option value="2">2x</option>
+              <option value="4">4x</option>
+              <option value="8">8x</option>
+            </select>
+          </div>
+          <div class="button-row">
+            <button id="startButton" disabled>Plan &amp; Run</button>
+            <button id="resetButton" class="secondary">Reset</button>
+          </div>
+          <p class="tiny-help">
+            The imported image is fit conservatively inside 256x256 without upscaling. Transparent or padded pixels remain uncolored.
+            The automation sets the pen and erase-canvas menus first, tracks active tools, picks colors through the HSV-style color box, and
+            draws boundaries before bucket filling enclosed interiors.
+          </p>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Run Status</h2>
+        <div class="grid-2">
+          <div class="stat">
+            <div class="stat-label">Planner</div>
+            <div class="stat-value" id="plannerStatus">Idle</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Frames</div>
+            <div class="stat-value" id="frameStatus">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Estimate</div>
+            <div class="stat-value" id="estimateStatus">--</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Match</div>
+            <div class="stat-value" id="matchStatus">--</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Current Command</div>
+            <div class="stat-value" id="commandStatus">Waiting</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Cursor</div>
+            <div class="stat-value" id="cursorStatus">640.0, 360.0</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Previews</h2>
+        <div class="preview-grid">
+          <div class="preview-card">
+            <h3>Source Fit</h3>
+            <canvas id="sourcePreview" width="256" height="256"></canvas>
+          </div>
+          <div class="preview-card">
+            <h3>Quantized Target</h3>
+            <canvas id="targetPreview" width="256" height="256"></canvas>
+          </div>
+        </div>
+        <div class="stack" style="margin-top: 10px;">
+          <div class="stat">
+            <div class="stat-label">Palette</div>
+            <div class="palette-swatches" id="paletteSwatches"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Controller View</h2>
+        <div class="controller-layout">
+          <div class="controller-cluster">
+            <div class="dpad">
+              <div></div>
+              <div class="button-indicator" id="btn-UP">↑</div>
+              <div></div>
+              <div class="button-indicator" id="btn-LEFT">←</div>
+              <div></div>
+              <div class="button-indicator" id="btn-RIGHT">→</div>
+              <div></div>
+              <div class="button-indicator" id="btn-DOWN">↓</div>
+              <div></div>
+            </div>
+            <div class="analog-box">
+              <div class="stick-pad">
+                <div class="stick-dot" id="stickDot"></div>
+              </div>
+              <div class="tiny-help" id="analogStatus">Stick: (0.00, 0.00)</div>
+            </div>
+          </div>
+
+          <div class="controller-cluster">
+            <div class="face-buttons">
+              <div class="button-indicator circle" id="btn-X" style="left: 47px; top: 8px;">X</div>
+              <div class="button-indicator circle" id="btn-Y" style="left: 8px; top: 47px;">Y</div>
+              <div class="button-indicator circle" id="btn-A" style="left: 86px; top: 47px;">A</div>
+              <div class="button-indicator circle" id="btn-B" style="left: 47px; top: 86px;">B</div>
+            </div>
+            <div class="grid-2 shoulder-grid">
+              <div class="button-indicator" id="btn-L">L</div>
+              <div class="button-indicator" id="btn-R">R</div>
+            </div>
+            <div class="grid-2 shoulder-grid">
+              <div class="button-indicator" id="btn-ZL">ZL</div>
+              <div class="button-indicator" id="btn-ZR">ZR</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Input Log</h2>
+        <div class="input-log" id="inputLog"></div>
+      </section>
+
+      <section class="footer-note">
+        The color picker uses the common HSV-style pattern implied by your description:
+        horizontal movement changes saturation, vertical movement changes value, and the bottom hue strip is stepped with `ZR` and `ZL`.
+      </section>
+    </aside>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const SCREEN_W = 1280;
+      const SCREEN_H = 720;
+      const DRAW_SIZE = 256;
+      const DRAW_LEFT = (SCREEN_W - DRAW_SIZE) / 2;
+      const DRAW_TOP = (SCREEN_H - DRAW_SIZE) / 2;
+      const FRAME_DT = 1 / 60;
+      const FREE_SPEED = 90;
+      const DRAW_SPEED = 60;
+      const COLOR_BOX_W = 200;
+      const COLOR_BOX_H = 100;
+      const HUE_BAR_W = 200;
+      const HUE_STEPS = 200;
+      const PEN_SIZES = [0, 1, 2, 3, 4, 5];
+      const ERASER_SIZES = [4, 8];
+      const ERASER_MENU_ITEMS = [
+        { type: "brush", label: "Small Eraser", brushIndex: 0 },
+        { type: "brush", label: "Medium Eraser", brushIndex: 1 },
+        { type: "clear", label: "Erase Canvas" }
+      ];
+      const TOOL_ORDER = ["bucket", "pen", "eraser"];
+      const TOOL_INDEX = { bucket: 0, pen: 1, eraser: 2 };
+      const MENU_LABELS = {
+        canvas: "Canvas",
+        toolMenu: "Tool Menu",
+        penSettings: "Pen Settings",
+        eraserSettings: "Eraser Settings",
+        colorMenu: "Color Menu"
+      };
+      const BUTTON_NAMES = ["A", "B", "X", "Y", "L", "R", "ZR", "ZL", "UP", "DOWN", "LEFT", "RIGHT"];
+
+      const dom = {
+        screen: document.getElementById("screen"),
+        imageInput: document.getElementById("imageInput"),
+        colorCount: document.getElementById("colorCount"),
+        colorCountValue: document.getElementById("colorCountValue"),
+        speedSelect: document.getElementById("speedSelect"),
+        startButton: document.getElementById("startButton"),
+        resetButton: document.getElementById("resetButton"),
+        stopwatch: document.getElementById("stopwatch"),
+        plannerStatus: document.getElementById("plannerStatus"),
+        frameStatus: document.getElementById("frameStatus"),
+        estimateStatus: document.getElementById("estimateStatus"),
+        matchStatus: document.getElementById("matchStatus"),
+        commandStatus: document.getElementById("commandStatus"),
+        cursorStatus: document.getElementById("cursorStatus"),
+        captionTool: document.getElementById("captionTool"),
+        captionMenu: document.getElementById("captionMenu"),
+        captionColor: document.getElementById("captionColor"),
+        captionProgress: document.getElementById("captionProgress"),
+        sourcePreview: document.getElementById("sourcePreview"),
+        targetPreview: document.getElementById("targetPreview"),
+        paletteSwatches: document.getElementById("paletteSwatches"),
+        inputLog: document.getElementById("inputLog"),
+        stickDot: document.getElementById("stickDot"),
+        analogStatus: document.getElementById("analogStatus")
+      };
+
+      const screenCtx = dom.screen.getContext("2d");
+      const sourcePreviewCtx = dom.sourcePreview.getContext("2d");
+      const targetPreviewCtx = dom.targetPreview.getContext("2d");
+
+      const offscreenCanvas = document.createElement("canvas");
+      offscreenCanvas.width = DRAW_SIZE;
+      offscreenCanvas.height = DRAW_SIZE;
+      const offscreenCtx = offscreenCanvas.getContext("2d");
+      const offscreenImage = offscreenCtx.createImageData(DRAW_SIZE, DRAW_SIZE);
+      const menuTargetCache = new Map();
+
+      const emptyButtons = () => Object.fromEntries(BUTTON_NAMES.map((name) => [name, false]));
+
+      function encodeColor(r, g, b) {
+        return (r << 16) | (g << 8) | b;
+      }
+
+      function decodeColor(value) {
+        if (value < 0) {
+          return null;
+        }
+        return {
+          r: (value >> 16) & 255,
+          g: (value >> 8) & 255,
+          b: value & 255
+        };
+      }
+
+      function colorToCss(value, alpha = 1) {
+        const color = decodeColor(value);
+        if (!color) {
+          return `rgba(0, 0, 0, ${alpha})`;
+        }
+        return `rgba(${color.r}, ${color.g}, ${color.b}, ${alpha})`;
+      }
+
+      function rgbToHex(value) {
+        if (value < 0) {
+          return "Transparent";
+        }
+        return `#${value.toString(16).padStart(6, "0").toUpperCase()}`;
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function lerp(a, b, t) {
+        return a + (b - a) * t;
+      }
+
+      function distance(ax, ay, bx, by) {
+        return Math.hypot(bx - ax, by - ay);
+      }
+
+      function rgbToHsv(r, g, b) {
+        const rn = r / 255;
+        const gn = g / 255;
+        const bn = b / 255;
+        const max = Math.max(rn, gn, bn);
+        const min = Math.min(rn, gn, bn);
+        const delta = max - min;
+        let h = 0;
+        if (delta !== 0) {
+          if (max === rn) {
+            h = ((gn - bn) / delta) % 6;
+          } else if (max === gn) {
+            h = (bn - rn) / delta + 2;
+          } else {
+            h = (rn - gn) / delta + 4;
+          }
+          h *= 60;
+          if (h < 0) {
+            h += 360;
+          }
+        }
+        const s = max === 0 ? 0 : delta / max;
+        const v = max;
+        return { h, s, v };
+      }
+
+      function hsvToRgb(h, s, v) {
+        const hue = ((h % 360) + 360) % 360;
+        const c = v * s;
+        const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+        const m = v - c;
+        let rn = 0;
+        let gn = 0;
+        let bn = 0;
+        if (hue < 60) {
+          rn = c;
+          gn = x;
+        } else if (hue < 120) {
+          rn = x;
+          gn = c;
+        } else if (hue < 180) {
+          gn = c;
+          bn = x;
+        } else if (hue < 240) {
+          gn = x;
+          bn = c;
+        } else if (hue < 300) {
+          rn = x;
+          bn = c;
+        } else {
+          rn = c;
+          bn = x;
+        }
+        return {
+          r: Math.round((rn + m) * 255),
+          g: Math.round((gn + m) * 255),
+          b: Math.round((bn + m) * 255)
+        };
+      }
+
+      function colorFromMenuState(hueStep, cursorX, cursorY) {
+        const hue = (hueStep / HUE_STEPS) * 360;
+        const saturation = clamp(cursorX / (COLOR_BOX_W - 1), 0, 1);
+        const value = clamp(1 - cursorY / (COLOR_BOX_H - 1), 0, 1);
+        const rgb = hsvToRgb(hue, saturation, value);
+        return encodeColor(rgb.r, rgb.g, rgb.b);
+      }
+
+      function colorToMenuTarget(encoded) {
+        const color = decodeColor(encoded);
+        if (!color) {
+          return { hueStep: 0, x: 0, y: COLOR_BOX_H - 1 };
+        }
+        const hsv = rgbToHsv(color.r, color.g, color.b);
+        const hueStep = ((Math.round((hsv.h / 360) * HUE_STEPS) % HUE_STEPS) + HUE_STEPS) % HUE_STEPS;
+        return {
+          hueStep,
+          x: clamp(Math.round(hsv.s * (COLOR_BOX_W - 1)), 0, COLOR_BOX_W - 1),
+          y: clamp(Math.round((1 - hsv.v) * (COLOR_BOX_H - 1)), 0, COLOR_BOX_H - 1)
+        };
+      }
+
+      function colorDistanceSq(a, b) {
+        const dr = a.r - b.r;
+        const dg = a.g - b.g;
+        const db = a.b - b.b;
+        return dr * dr + dg * dg + db * db;
+      }
+
+      function findNearestMenuTarget(encoded) {
+        if (menuTargetCache.has(encoded)) {
+          return menuTargetCache.get(encoded);
+        }
+
+        const targetColor = decodeColor(encoded);
+        if (!targetColor) {
+          const fallback = { hueStep: 0, x: 0, y: COLOR_BOX_H - 1, actualColor: -1 };
+          menuTargetCache.set(encoded, fallback);
+          return fallback;
+        }
+
+        const approximate = colorToMenuTarget(encoded);
+        let best = {
+          hueStep: approximate.hueStep,
+          x: approximate.x,
+          y: approximate.y,
+          actualColor: colorFromMenuState(approximate.hueStep, approximate.x, approximate.y)
+        };
+        let bestDistance = colorDistanceSq(decodeColor(best.actualColor), targetColor);
+
+        for (let hueOffset = -4; hueOffset <= 4; hueOffset += 1) {
+          const hueStep = (approximate.hueStep + hueOffset + HUE_STEPS) % HUE_STEPS;
+          for (let y = 0; y < COLOR_BOX_H; y += 1) {
+            for (let x = 0; x < COLOR_BOX_W; x += 1) {
+              const actualColor = colorFromMenuState(hueStep, x, y);
+              const candidate = decodeColor(actualColor);
+              const distance = colorDistanceSq(candidate, targetColor);
+              if (distance < bestDistance) {
+                bestDistance = distance;
+                best = { hueStep, x, y, actualColor };
+                if (distance === 0) {
+                  menuTargetCache.set(encoded, best);
+                  return best;
+                }
+              }
+            }
+          }
+        }
+
+        menuTargetCache.set(encoded, best);
+        return best;
+      }
+
+      function createImageArray(fill = -1) {
+        const array = new Int32Array(DRAW_SIZE * DRAW_SIZE);
+        array.fill(fill);
+        return array;
+      }
+
+      function screenToCanvasCoord(x, y) {
+        return {
+          x: x - DRAW_LEFT,
+          y: y - DRAW_TOP
+        };
+      }
+
+      function canvasToScreenCoord(x, y) {
+        return {
+          x: DRAW_LEFT + x + 0.5,
+          y: DRAW_TOP + y + 0.5
+        };
+      }
+
+      function traceCanvasToScreenCoord(x, y) {
+        return {
+          x: DRAW_LEFT + x,
+          y: DRAW_TOP + y
+        };
+      }
+
+      function isInsideCanvas(x, y) {
+        return x >= 0 && x < DRAW_SIZE && y >= 0 && y < DRAW_SIZE;
+      }
+
+      function formatTime(seconds) {
+        const totalCs = Math.round(seconds * 100);
+        const minutes = Math.floor(totalCs / 6000);
+        const secs = Math.floor((totalCs % 6000) / 100);
+        const cs = totalCs % 100;
+        return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+      }
+
+      function formatDurationFromFrames(frames) {
+        return formatTime(frames / 60);
+      }
+
+      function addLogLine(message) {
+        const line = document.createElement("div");
+        line.className = "log-line";
+        line.textContent = message;
+        dom.inputLog.prepend(line);
+        while (dom.inputLog.children.length > 18) {
+          dom.inputLog.removeChild(dom.inputLog.lastChild);
+        }
+      }
+
+      class DrawingGame {
+        constructor() {
+          this.reset();
+        }
+
+        reset() {
+          this.pixels = createImageArray(-1);
+          this.cursor = { x: SCREEN_W / 2, y: SCREEN_H / 2 };
+          this.mode = "canvas";
+          this.activeTool = "pen";
+          this.menuToolSelection = TOOL_INDEX.pen;
+          this.penBrushIndex = 5;
+          this.eraserBrushIndex = 0;
+          this.eraserMenuIndex = 0;
+          this.toolBeforeEraserMenu = "pen";
+          this.colorHueStep = 0;
+          this.colorCursor = { x: 0, y: COLOR_BOX_H - 1 };
+          this.selectedColor = encodeColor(0, 0, 0);
+          this.colorSequenceStep = 0;
+          this.colorSequenceWait = 0;
+          this.previousButtons = emptyButtons();
+          this.canvasDirty = true;
+          this.seedDemoCanvas();
+        }
+
+        getBrushRadius() {
+          if (this.activeTool === "eraser") {
+            return ERASER_SIZES[this.eraserBrushIndex];
+          }
+          return PEN_SIZES[this.penBrushIndex];
+        }
+
+        fillRect(x, y, width, height, color) {
+          const xStart = clamp(Math.round(x), 0, DRAW_SIZE);
+          const yStart = clamp(Math.round(y), 0, DRAW_SIZE);
+          const xEnd = clamp(Math.round(x + width), 0, DRAW_SIZE);
+          const yEnd = clamp(Math.round(y + height), 0, DRAW_SIZE);
+          for (let py = yStart; py < yEnd; py += 1) {
+            for (let px = xStart; px < xEnd; px += 1) {
+              this.pixels[py * DRAW_SIZE + px] = color;
+            }
+          }
+          this.canvasDirty = true;
+        }
+
+        fillCircle(cx, cy, radius, color) {
+          for (let y = Math.floor(cy - radius); y <= Math.ceil(cy + radius); y += 1) {
+            for (let x = Math.floor(cx - radius); x <= Math.ceil(cx + radius); x += 1) {
+              if (!isInsideCanvas(x, y)) {
+                continue;
+              }
+              const dx = x - cx;
+              const dy = y - cy;
+              if (dx * dx + dy * dy <= radius * radius) {
+                this.pixels[y * DRAW_SIZE + x] = color;
+              }
+            }
+          }
+          this.canvasDirty = true;
+        }
+
+        strokeLine(x0, y0, x1, y1, radius, color) {
+          this.drawStroke({ x: x0, y: y0 }, { x: x1, y: y1 }, color, radius);
+        }
+
+        eraseCanvas() {
+          this.pixels.fill(-1);
+          this.canvasDirty = true;
+        }
+
+        seedDemoCanvas() {
+          const orange = encodeColor(244, 149, 62);
+          const cream = encodeColor(248, 231, 196);
+          const teal = encodeColor(70, 197, 214);
+          const red = encodeColor(220, 86, 86);
+          const navy = encodeColor(20, 38, 66);
+
+          this.fillRect(20, 188, 216, 28, navy);
+          this.fillCircle(74, 76, 34, orange);
+          this.fillCircle(74, 76, 19, cream);
+          this.fillCircle(178, 82, 28, teal);
+          this.fillCircle(154, 132, 18, red);
+          this.strokeLine(30, 158, 226, 124, 3, teal);
+          this.strokeLine(26, 118, 100, 210, 2, cream);
+          this.strokeLine(150, 28, 212, 176, 3, red);
+        }
+
+        step(input, dt) {
+          const justPressed = {};
+          for (const name of BUTTON_NAMES) {
+            justPressed[name] = !!input.buttons[name] && !this.previousButtons[name];
+          }
+
+          if (this.mode === "canvas") {
+            this.stepCanvas(input, justPressed, dt);
+          } else if (this.mode === "toolMenu") {
+            this.stepToolMenu(justPressed);
+          } else if (this.mode === "penSettings") {
+            this.stepPenSettings(justPressed);
+          } else if (this.mode === "eraserSettings") {
+            this.stepEraserSettings(justPressed);
+          } else if (this.mode === "colorMenu") {
+            this.stepColorMenu(input, justPressed, dt);
+          }
+
+          this.previousButtons = { ...input.buttons };
+        }
+
+        stepCanvas(input, justPressed, dt) {
+          if (this.advanceColorSequence(justPressed)) {
+            return;
+          }
+
+          if (justPressed.X) {
+            this.mode = "toolMenu";
+            this.menuToolSelection = TOOL_INDEX[this.activeTool];
+            return;
+          }
+
+          const analog = input.analog;
+          const magnitude = Math.hypot(analog.x, analog.y);
+          const speed = input.buttons.A ? DRAW_SPEED : FREE_SPEED;
+          const previousCanvasPos = screenToCanvasCoord(this.cursor.x, this.cursor.y);
+          if (magnitude > 0.0001) {
+            const nx = analog.x / magnitude;
+            const ny = analog.y / magnitude;
+            const stepSize = speed * magnitude * dt;
+            this.cursor.x = clamp(this.cursor.x + nx * stepSize, 0, SCREEN_W);
+            this.cursor.y = clamp(this.cursor.y + ny * stepSize, 0, SCREEN_H);
+          }
+
+          const currentCanvasPos = screenToCanvasCoord(this.cursor.x, this.cursor.y);
+          if (input.buttons.A) {
+            if (this.activeTool === "bucket" && justPressed.A) {
+              this.bucketAtCursor();
+            } else if (this.activeTool === "pen" || this.activeTool === "eraser") {
+              const drawColor = this.activeTool === "eraser" ? -1 : this.selectedColor;
+              this.drawStroke(previousCanvasPos, currentCanvasPos, drawColor, this.getBrushRadius());
+            }
+          }
+        }
+
+        advanceColorSequence(justPressed) {
+          if (this.colorSequenceStep === 3) {
+            if (this.colorSequenceWait > 0) {
+              this.colorSequenceWait -= 1;
+              if (this.colorSequenceWait === 0) {
+                this.mode = "colorMenu";
+                this.colorSequenceStep = 0;
+                return true;
+              }
+            } else {
+              this.mode = "colorMenu";
+              this.colorSequenceStep = 0;
+              return true;
+            }
+          }
+
+          if (this.colorSequenceStep === 0) {
+            if (justPressed.Y) {
+              this.colorSequenceStep = 1;
+              this.colorSequenceWait = 2;
+              return true;
+            }
+            return false;
+          }
+
+          if (this.colorSequenceStep === 1) {
+            if (this.colorSequenceWait > 0) {
+              this.colorSequenceWait -= 1;
+              return false;
+            }
+            if (justPressed.Y) {
+              this.colorSequenceStep = 2;
+              return true;
+            }
+            if (Object.values(justPressed).some(Boolean)) {
+              this.colorSequenceStep = 0;
+            }
+            return false;
+          }
+
+          if (this.colorSequenceStep === 2) {
+            if (justPressed.R) {
+              this.colorSequenceStep = 3;
+              this.colorSequenceWait = 2;
+              return true;
+            }
+            if (Object.values(justPressed).some(Boolean) && !justPressed.R) {
+              this.colorSequenceStep = 0;
+            }
+          }
+
+          return false;
+        }
+
+        stepToolMenu(justPressed) {
+          if (justPressed.LEFT) {
+            this.menuToolSelection = clamp(this.menuToolSelection - 1, 0, TOOL_ORDER.length - 1);
+          } else if (justPressed.RIGHT) {
+            this.menuToolSelection = clamp(this.menuToolSelection + 1, 0, TOOL_ORDER.length - 1);
+          } else if (justPressed.B) {
+            this.mode = "canvas";
+          } else if (justPressed.A) {
+            this.activeTool = TOOL_ORDER[this.menuToolSelection];
+            this.mode = "canvas";
+          } else if (justPressed.X) {
+            const selectedTool = TOOL_ORDER[this.menuToolSelection];
+            if (selectedTool === "pen") {
+              this.mode = "penSettings";
+            } else if (selectedTool === "eraser") {
+              this.toolBeforeEraserMenu = this.activeTool === "eraser" ? "pen" : this.activeTool;
+              this.eraserMenuIndex = this.eraserBrushIndex;
+              this.mode = "eraserSettings";
+            }
+          }
+        }
+
+        stepPenSettings(justPressed) {
+          if (justPressed.LEFT) {
+            this.penBrushIndex = clamp(this.penBrushIndex - 1, 0, PEN_SIZES.length - 1);
+          } else if (justPressed.RIGHT) {
+            this.penBrushIndex = clamp(this.penBrushIndex + 1, 0, PEN_SIZES.length - 1);
+          } else if (justPressed.B) {
+            this.mode = "toolMenu";
+          } else if (justPressed.A) {
+            this.activeTool = "pen";
+            this.mode = "canvas";
+          }
+        }
+
+        stepEraserSettings(justPressed) {
+          if (justPressed.UP) {
+            this.eraserMenuIndex = clamp(this.eraserMenuIndex - 1, 0, ERASER_MENU_ITEMS.length - 1);
+          } else if (justPressed.DOWN) {
+            this.eraserMenuIndex = clamp(this.eraserMenuIndex + 1, 0, ERASER_MENU_ITEMS.length - 1);
+          } else if (justPressed.B) {
+            this.mode = "toolMenu";
+          } else if (justPressed.A) {
+            const item = ERASER_MENU_ITEMS[this.eraserMenuIndex];
+            if (item.type === "clear") {
+              this.eraseCanvas();
+              this.activeTool = this.toolBeforeEraserMenu || "pen";
+            } else {
+              this.eraserBrushIndex = item.brushIndex;
+              this.activeTool = "eraser";
+            }
+            this.mode = "canvas";
+          }
+        }
+
+        stepColorMenu(input, justPressed, dt) {
+          const analog = input.analog;
+          const magnitude = Math.hypot(analog.x, analog.y);
+          if (magnitude > 0.0001) {
+            const nx = analog.x / magnitude;
+            const ny = analog.y / magnitude;
+            const stepSize = DRAW_SPEED * magnitude * dt;
+            this.colorCursor.x = clamp(this.colorCursor.x + nx * stepSize, 0, COLOR_BOX_W - 1);
+            this.colorCursor.y = clamp(this.colorCursor.y + ny * stepSize, 0, COLOR_BOX_H - 1);
+          }
+          if (justPressed.ZR) {
+            this.colorHueStep = (this.colorHueStep + 1) % HUE_STEPS;
+          } else if (justPressed.ZL) {
+            this.colorHueStep = (this.colorHueStep - 1 + HUE_STEPS) % HUE_STEPS;
+          } else if (justPressed.B) {
+            this.mode = "canvas";
+          } else if (justPressed.A) {
+            this.selectedColor = colorFromMenuState(
+              this.colorHueStep,
+              Math.round(this.colorCursor.x),
+              Math.round(this.colorCursor.y)
+            );
+            this.mode = "canvas";
+          }
+        }
+
+        drawStroke(previousPos, currentPos, color, radius) {
+          const startX = previousPos.x;
+          const startY = previousPos.y;
+          const endX = currentPos.x;
+          const endY = currentPos.y;
+          if (distance(startX, startY, endX, endY) < 0.001) {
+            this.stamp(Math.floor(startX), Math.floor(startY), radius, color);
+            return;
+          }
+          const length = Math.max(1, Math.ceil(distance(startX, startY, endX, endY) * 2));
+          for (let i = 0; i <= length; i += 1) {
+            const t = i / length;
+            const x = lerp(startX, endX, t);
+            const y = lerp(startY, endY, t);
+            this.stamp(Math.round(x), Math.round(y), radius, color);
+          }
+        }
+
+        stamp(cx, cy, radius, color) {
+          for (let y = cy - radius; y <= cy + radius; y += 1) {
+            for (let x = cx - radius; x <= cx + radius; x += 1) {
+              if (!isInsideCanvas(x, y)) {
+                continue;
+              }
+              const dx = x - cx;
+              const dy = y - cy;
+              if (dx * dx + dy * dy <= radius * radius) {
+                this.pixels[y * DRAW_SIZE + x] = color;
+                this.canvasDirty = true;
+              }
+            }
+          }
+        }
+
+        bucketAtCursor() {
+          const canvasPos = screenToCanvasCoord(this.cursor.x, this.cursor.y);
+          const startX = Math.floor(canvasPos.x);
+          const startY = Math.floor(canvasPos.y);
+          if (!isInsideCanvas(startX, startY)) {
+            return;
+          }
+          const startIndex = startY * DRAW_SIZE + startX;
+          const targetColor = this.pixels[startIndex];
+          const replacement = this.selectedColor;
+          if (targetColor === replacement) {
+            return;
+          }
+          const queue = [startIndex];
+          const visited = new Uint8Array(this.pixels.length);
+          visited[startIndex] = 1;
+          while (queue.length > 0) {
+            const index = queue.pop();
+            if (this.pixels[index] !== targetColor) {
+              continue;
+            }
+            this.pixels[index] = replacement;
+            const x = index % DRAW_SIZE;
+            const y = Math.floor(index / DRAW_SIZE);
+            const neighbors = [
+              [x + 1, y],
+              [x - 1, y],
+              [x, y + 1],
+              [x, y - 1]
+            ];
+            for (const [nx, ny] of neighbors) {
+              if (!isInsideCanvas(nx, ny)) {
+                continue;
+              }
+              const neighborIndex = ny * DRAW_SIZE + nx;
+              if (!visited[neighborIndex] && this.pixels[neighborIndex] === targetColor) {
+                visited[neighborIndex] = 1;
+                queue.push(neighborIndex);
+              }
+            }
+          }
+          this.canvasDirty = true;
+        }
+
+        renderCanvasToBitmap() {
+          if (!this.canvasDirty) {
+            return;
+          }
+          const data = offscreenImage.data;
+          for (let i = 0; i < this.pixels.length; i += 1) {
+            const color = this.pixels[i];
+            const offset = i * 4;
+            if (color < 0) {
+              data[offset] = 0;
+              data[offset + 1] = 0;
+              data[offset + 2] = 0;
+              data[offset + 3] = 0;
+            } else {
+              data[offset] = (color >> 16) & 255;
+              data[offset + 1] = (color >> 8) & 255;
+              data[offset + 2] = color & 255;
+              data[offset + 3] = 255;
+            }
+          }
+          offscreenCtx.putImageData(offscreenImage, 0, 0);
+          this.canvasDirty = false;
+        }
+      }
+
+      class PlaybackController {
+        constructor(commands) {
+          this.commands = commands;
+          this.index = 0;
+          this.done = commands.length === 0;
+          this.currentLabel = this.done ? "Finished" : commands[0].label || commands[0].type;
+        }
+
+        getCurrentCommand() {
+          return this.commands[this.index] || null;
+        }
+
+        currentInput(game) {
+          if (this.done) {
+            return { analog: { x: 0, y: 0 }, buttons: emptyButtons() };
+          }
+
+          while (this.index < this.commands.length) {
+            const command = this.commands[this.index];
+            this.currentLabel = command.label || command.type;
+            const input = this.executeCommand(command, game);
+            if (input) {
+              return input;
+            }
+            this.index += 1;
+          }
+
+          this.done = true;
+          this.currentLabel = "Finished";
+          return { analog: { x: 0, y: 0 }, buttons: emptyButtons() };
+        }
+
+        executeCommand(command, game) {
+          switch (command.type) {
+            case "wait":
+              if (command.remaining === undefined) {
+                command.remaining = command.frames;
+              }
+              if (command.remaining > 0) {
+                command.remaining -= 1;
+                return { analog: { x: 0, y: 0 }, buttons: emptyButtons() };
+              }
+              return null;
+
+            case "tap":
+              if (command.phase === undefined) {
+                command.phase = "hold";
+                command.remaining = command.holdFrames ?? 1;
+                command.release = command.releaseFrames ?? 1;
+              }
+              if (command.phase === "hold") {
+                if (command.remaining > 0) {
+                  command.remaining -= 1;
+                  const buttons = emptyButtons();
+                  buttons[command.button] = true;
+                  return { analog: { x: 0, y: 0 }, buttons };
+                }
+                command.phase = "release";
+              }
+              if (command.phase === "release") {
+                if (command.release > 0) {
+                  command.release -= 1;
+                  return { analog: { x: 0, y: 0 }, buttons: emptyButtons() };
+                }
+                return null;
+              }
+              return null;
+
+            case "moveCursor":
+              return this.moveTowardsCursor(command, game, false);
+
+            case "moveColorCursor":
+              return this.moveTowardsColorCursor(command, game);
+
+            case "tracePath":
+              if (command.pointer === undefined) {
+                command.pointer = 0;
+              }
+              while (command.pointer < command.points.length) {
+                const point = command.points[command.pointer];
+                const target = traceCanvasToScreenCoord(point.x, point.y);
+                const dx = target.x - game.cursor.x;
+                const dy = target.y - game.cursor.y;
+                const dist = Math.hypot(dx, dy);
+                if (dist < 0.05) {
+                  game.cursor.x = target.x;
+                  game.cursor.y = target.y;
+                  command.pointer += 1;
+                  continue;
+                }
+                const buttons = emptyButtons();
+                buttons.A = true;
+                const maxStep = DRAW_SPEED * FRAME_DT;
+                const scale = Math.min(1, dist / maxStep);
+                return {
+                  analog: {
+                    x: dist === 0 ? 0 : (dx / dist) * scale,
+                    y: dist === 0 ? 0 : (dy / dist) * scale
+                  },
+                  buttons
+                };
+              }
+              return null;
+
+            default:
+              return null;
+          }
+        }
+
+        moveTowardsCursor(command, game, drawing) {
+          const dx = command.x - game.cursor.x;
+          const dy = command.y - game.cursor.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 0.05) {
+            game.cursor.x = command.x;
+            game.cursor.y = command.y;
+            return null;
+          }
+          const maxStep = (drawing ? DRAW_SPEED : FREE_SPEED) * FRAME_DT;
+          const scale = Math.min(1, dist / maxStep);
+          const buttons = emptyButtons();
+          if (drawing) {
+            buttons.A = true;
+          }
+          return {
+            analog: {
+              x: dist === 0 ? 0 : (dx / dist) * scale,
+              y: dist === 0 ? 0 : (dy / dist) * scale
+            },
+            buttons
+          };
+        }
+
+        moveTowardsColorCursor(command, game) {
+          const dx = command.x - game.colorCursor.x;
+          const dy = command.y - game.colorCursor.y;
+          const dist = Math.hypot(dx, dy);
+          if (dist < 0.05) {
+            game.colorCursor.x = command.x;
+            game.colorCursor.y = command.y;
+            return null;
+          }
+          const maxStep = DRAW_SPEED * FRAME_DT;
+          const scale = Math.min(1, dist / maxStep);
+          return {
+            analog: {
+              x: dist === 0 ? 0 : (dx / dist) * scale,
+              y: dist === 0 ? 0 : (dy / dist) * scale
+            },
+            buttons: emptyButtons()
+          };
+        }
+      }
+
+      const app = {
+        game: new DrawingGame(),
+        processed: null,
+        loadedImage: null,
+        controller: null,
+        stopwatchSeconds: 0,
+        frameCount: 0,
+        simulationRunning: false,
+        playbackSpeed: 1,
+        plannerBusy: false,
+        currentInput: { analog: { x: 0, y: 0 }, buttons: emptyButtons() },
+        targetMatch: null,
+        estimatedFrames: null,
+        lastLoggedCommand: null
+      };
+
+      function updateControllerUi(input) {
+        for (const name of BUTTON_NAMES) {
+          const button = document.getElementById(`btn-${name}`);
+          if (button) {
+            button.classList.toggle("active", !!input.buttons[name]);
+          }
+        }
+        const stickRange = 48;
+        dom.stickDot.style.left = `calc(50% + ${input.analog.x * stickRange}px)`;
+        dom.stickDot.style.top = `calc(50% + ${input.analog.y * stickRange}px)`;
+        dom.analogStatus.textContent = `Stick: (${input.analog.x.toFixed(2)}, ${input.analog.y.toFixed(2)})`;
+      }
+
+      function renderUi() {
+        dom.stopwatch.textContent = formatTime(app.stopwatchSeconds);
+        dom.frameStatus.textContent = String(app.frameCount);
+        dom.cursorStatus.textContent = `${app.game.cursor.x.toFixed(1)}, ${app.game.cursor.y.toFixed(1)}`;
+        dom.captionTool.textContent = `Active tool: ${capitalize(app.game.activeTool)}`;
+        dom.captionMenu.textContent = `Menu: ${MENU_LABELS[app.game.mode]}`;
+        dom.captionColor.textContent = `Color: ${rgbToHex(app.game.selectedColor)}`;
+        dom.captionProgress.textContent = app.targetMatch === null
+          ? "Progress: Waiting for image"
+          : `Progress: ${app.targetMatch.matches.toLocaleString()} / ${app.targetMatch.total.toLocaleString()} pixels`;
+        dom.commandStatus.textContent = app.controller ? app.controller.currentLabel : "Waiting";
+        dom.matchStatus.textContent = app.targetMatch
+          ? `${((app.targetMatch.matches / Math.max(1, app.targetMatch.total)) * 100).toFixed(1)}%`
+          : "--";
+        dom.estimateStatus.textContent = app.estimatedFrames ? formatDurationFromFrames(app.estimatedFrames) : "--";
+        updateControllerUi(app.currentInput);
+      }
+
+      function capitalize(value) {
+        return value.charAt(0).toUpperCase() + value.slice(1);
+      }
+
+      function renderScreen() {
+        const ctx = screenCtx;
+        ctx.clearRect(0, 0, SCREEN_W, SCREEN_H);
+
+        const bgGradient = ctx.createLinearGradient(0, 0, 0, SCREEN_H);
+        bgGradient.addColorStop(0, "#162131");
+        bgGradient.addColorStop(1, "#0d131b");
+        ctx.fillStyle = bgGradient;
+        ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.025)";
+        for (let x = 0; x <= SCREEN_W; x += 32) {
+          ctx.fillRect(x, 0, 1, SCREEN_H);
+        }
+        for (let y = 0; y <= SCREEN_H; y += 32) {
+          ctx.fillRect(0, y, SCREEN_W, 1);
+        }
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(DRAW_LEFT - 14, DRAW_TOP - 14);
+        ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+        roundRect(ctx, 0, 0, DRAW_SIZE + 28, DRAW_SIZE + 28, 24);
+        ctx.fill();
+        ctx.restore();
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.16)";
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "rgba(255, 255, 255, 0.02)";
+        roundRect(ctx, DRAW_LEFT - 8, DRAW_TOP - 8, DRAW_SIZE + 16, DRAW_SIZE + 16, 18);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        drawCheckerboard(ctx, DRAW_LEFT, DRAW_TOP, DRAW_SIZE, DRAW_SIZE);
+        app.game.renderCanvasToBitmap();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(offscreenCanvas, DRAW_LEFT, DRAW_TOP, DRAW_SIZE, DRAW_SIZE);
+
+        ctx.save();
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.strokeRect(DRAW_LEFT, DRAW_TOP, DRAW_SIZE, DRAW_SIZE);
+        ctx.restore();
+
+        drawCursor(ctx, app.game.cursor.x, app.game.cursor.y, app.game.activeTool, app.game.mode === "canvas");
+
+        if (app.game.mode === "toolMenu") {
+          drawToolMenu(ctx, app.game.menuToolSelection, app.game.activeTool);
+        } else if (app.game.mode === "penSettings") {
+          drawPenSettings(ctx, app.game.penBrushIndex);
+        } else if (app.game.mode === "eraserSettings") {
+          drawEraserSettings(ctx, app.game.eraserMenuIndex, app.game.eraserBrushIndex);
+        } else if (app.game.mode === "colorMenu") {
+          drawColorMenu(ctx, app.game.colorHueStep, app.game.colorCursor);
+        }
+
+        drawHudText(ctx);
+      }
+
+      function drawCheckerboard(ctx, x, y, width, height) {
+        ctx.save();
+        ctx.fillStyle = "#111826";
+        ctx.fillRect(x, y, width, height);
+        for (let row = 0; row < height; row += 16) {
+          for (let col = 0; col < width; col += 16) {
+            const toggle = ((row / 16) + (col / 16)) % 2 === 0;
+            ctx.fillStyle = toggle ? "rgba(255,255,255,0.035)" : "rgba(255,255,255,0.015)";
+            ctx.fillRect(x + col, y + row, 16, 16);
+          }
+        }
+        ctx.restore();
+      }
+
+      function drawCursor(ctx, x, y, tool, active) {
+        ctx.save();
+        const toolColor = tool === "bucket" ? "#5fd8c9" : tool === "eraser" ? "#ff6e6e" : "#ff8f3d";
+        ctx.translate(x, y);
+        ctx.strokeStyle = active ? toolColor : "rgba(255,255,255,0.55)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 11, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-16, 0);
+        ctx.lineTo(-5, 0);
+        ctx.moveTo(16, 0);
+        ctx.lineTo(5, 0);
+        ctx.moveTo(0, -16);
+        ctx.lineTo(0, -5);
+        ctx.moveTo(0, 16);
+        ctx.lineTo(0, 5);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawToolMenu(ctx, selectedIndex, activeTool) {
+        ctx.save();
+        ctx.translate(SCREEN_W / 2 - 220, 72);
+        drawModalBase(ctx, 440, 132, "Tool Menu");
+        const items = [
+          { name: "Bucket", short: "Fill", color: "#5fd8c9" },
+          { name: "Pen", short: "Outline", color: "#ff8f3d" },
+          { name: "Eraser", short: "Clear", color: "#ff6e6e" }
+        ];
+        items.forEach((item, index) => {
+          const x = 26 + index * 130;
+          const selected = index === selectedIndex;
+          ctx.fillStyle = selected ? "rgba(255, 143, 61, 0.2)" : "rgba(255,255,255,0.04)";
+          ctx.strokeStyle = selected ? "rgba(255, 143, 61, 0.6)" : "rgba(255,255,255,0.12)";
+          ctx.lineWidth = 2;
+          roundRect(ctx, x, 40, 116, 72, 18);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = item.color;
+          ctx.font = "700 18px Avenir Next, Segoe UI, Trebuchet MS, sans-serif";
+          ctx.fillText(item.name, x + 14, 67);
+          ctx.fillStyle = "rgba(248,241,229,0.78)";
+          ctx.font = "12px SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+          ctx.fillText(item.short, x + 14, 88);
+          if (TOOL_ORDER[index] === activeTool) {
+            ctx.fillStyle = "rgba(95, 216, 201, 0.95)";
+            ctx.fillText("ACTIVE", x + 14, 103);
+          }
+        });
+        ctx.restore();
+      }
+
+      function drawPenSettings(ctx, selectedBrush) {
+        ctx.save();
+        ctx.translate(SCREEN_W / 2 - 252, 70);
+        drawModalBase(ctx, 504, 140, "Pen Brush");
+        PEN_SIZES.forEach((size, index) => {
+          const x = 32 + index * 76;
+          const selected = index === selectedBrush;
+          ctx.fillStyle = selected ? "rgba(255, 143, 61, 0.2)" : "rgba(255,255,255,0.04)";
+          ctx.strokeStyle = selected ? "rgba(255, 143, 61, 0.55)" : "rgba(255,255,255,0.12)";
+          roundRect(ctx, x, 42, 58, 72, 18);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#ffb279";
+          ctx.beginPath();
+          ctx.arc(x + 29, 75, Math.max(4, size), 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      }
+
+      function drawEraserSettings(ctx, selectedIndex, activeBrushIndex) {
+        ctx.save();
+        ctx.translate(SCREEN_W / 2 - 150, 70);
+        drawModalBase(ctx, 300, 182, "Eraser / Clear");
+        ERASER_MENU_ITEMS.forEach((item, index) => {
+          const y = 42 + index * 42;
+          const selected = index === selectedIndex;
+          ctx.fillStyle = selected ? "rgba(255, 110, 110, 0.18)" : "rgba(255,255,255,0.04)";
+          ctx.strokeStyle = selected ? "rgba(255, 110, 110, 0.58)" : "rgba(255,255,255,0.12)";
+          roundRect(ctx, 24, y, 252, 32, 14);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = "#ffd4d4";
+          if (item.type === "clear") {
+            ctx.fillRect(42, y + 7, 22, 18);
+            ctx.fillStyle = "rgba(18, 27, 40, 0.95)";
+            ctx.fillRect(48, y + 12, 10, 3);
+            ctx.fillStyle = "#ffd4d4";
+          } else {
+            const size = ERASER_SIZES[item.brushIndex];
+            ctx.fillRect(42, y + 16 - size / 4, size * 8, size / 2);
+          }
+          ctx.font = "12px SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+          ctx.fillText(item.label, 120, y + 20);
+          if (item.type === "brush" && item.brushIndex === activeBrushIndex) {
+            ctx.fillText("ACTIVE", 220, y + 20);
+          }
+        });
+        ctx.restore();
+      }
+
+      function drawColorMenu(ctx, hueStep, cursor) {
+        const panelW = 346;
+        const panelH = 290;
+        const panelX = SCREEN_W / 2 - panelW / 2;
+        const panelY = SCREEN_H / 2 - panelH / 2;
+        ctx.save();
+        ctx.translate(panelX, panelY);
+        drawModalBase(ctx, panelW, panelH, "Color Menu");
+
+        const boxX = 24;
+        const boxY = 48;
+        const hue = (hueStep / HUE_STEPS) * 360;
+        const pureHue = hsvToRgb(hue, 1, 1);
+        const gradX = ctx.createLinearGradient(boxX, 0, boxX + COLOR_BOX_W, 0);
+        gradX.addColorStop(0, "rgb(255,255,255)");
+        gradX.addColorStop(1, `rgb(${pureHue.r},${pureHue.g},${pureHue.b})`);
+        ctx.fillStyle = gradX;
+        ctx.fillRect(boxX, boxY, COLOR_BOX_W, COLOR_BOX_H);
+        const gradY = ctx.createLinearGradient(0, boxY, 0, boxY + COLOR_BOX_H);
+        gradY.addColorStop(0, "rgba(0,0,0,0)");
+        gradY.addColorStop(1, "rgba(0,0,0,1)");
+        ctx.fillStyle = gradY;
+        ctx.fillRect(boxX, boxY, COLOR_BOX_W, COLOR_BOX_H);
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.strokeRect(boxX, boxY, COLOR_BOX_W, COLOR_BOX_H);
+
+        const hueX = 24;
+        const hueY = 164;
+        const hueGrad = ctx.createLinearGradient(hueX, 0, hueX + HUE_BAR_W, 0);
+        [
+          [0.0, "rgb(255,0,0)"],
+          [1 / 6, "rgb(255,0,255)"],
+          [2 / 6, "rgb(0,0,255)"],
+          [3 / 6, "rgb(0,255,255)"],
+          [4 / 6, "rgb(0,255,0)"],
+          [5 / 6, "rgb(255,255,0)"],
+          [1.0, "rgb(255,64,0)"]
+        ].forEach(([stop, color]) => hueGrad.addColorStop(stop, color));
+        ctx.fillStyle = hueGrad;
+        ctx.fillRect(hueX, hueY, HUE_BAR_W, 22);
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.strokeRect(hueX, hueY, HUE_BAR_W, 22);
+
+        const hueMarkerX = hueX + (hueStep / (HUE_STEPS - 1)) * HUE_BAR_W;
+        ctx.strokeStyle = "#f8f1e5";
+        ctx.beginPath();
+        ctx.moveTo(hueMarkerX, hueY - 5);
+        ctx.lineTo(hueMarkerX, hueY + 27);
+        ctx.stroke();
+
+        const currentColor = colorFromMenuState(hueStep, Math.round(cursor.x), Math.round(cursor.y));
+        ctx.fillStyle = colorToCss(currentColor, 1);
+        roundRect(ctx, 236, 48, 86, 138, 18);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.2)";
+        ctx.stroke();
+
+        ctx.strokeStyle = "#f8f1e5";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(boxX + cursor.x, boxY + cursor.y, 8, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(248,241,229,0.78)";
+        ctx.font = "12px SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+        ctx.fillText(`HSV ${hue.toFixed(0)}°`, 236, 208);
+        ctx.fillText(`S ${Math.round((cursor.x / (COLOR_BOX_W - 1)) * 100)}%`, 236, 228);
+        ctx.fillText(`V ${Math.round((1 - cursor.y / (COLOR_BOX_H - 1)) * 100)}%`, 236, 248);
+        ctx.fillText(rgbToHex(currentColor), 24, 208);
+        ctx.restore();
+      }
+
+      function drawModalBase(ctx, width, height, title) {
+        const grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, "rgba(18, 27, 40, 0.98)");
+        grad.addColorStop(1, "rgba(10, 17, 24, 0.96)");
+        ctx.fillStyle = grad;
+        roundRect(ctx, 0, 0, width, height, 26);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,0.18)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = "#f8f1e5";
+        ctx.font = "700 20px Avenir Next, Segoe UI, Trebuchet MS, sans-serif";
+        ctx.fillText(title, 24, 28);
+      }
+
+      function drawHudText(ctx) {
+        ctx.save();
+        ctx.font = "12px SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+        ctx.fillStyle = "rgba(248,241,229,0.72)";
+        ctx.fillText(`Cursor ${app.game.cursor.x.toFixed(1)}, ${app.game.cursor.y.toFixed(1)}`, 24, SCREEN_H - 54);
+        ctx.fillText(`Tool ${app.game.activeTool.toUpperCase()} | Pen ${PEN_SIZES[app.game.penBrushIndex]} | Eraser ${ERASER_SIZES[app.game.eraserBrushIndex]}`, 24, SCREEN_H - 34);
+        ctx.fillText(`Mode ${MENU_LABELS[app.game.mode]} | Stopwatch ${formatTime(app.stopwatchSeconds)}`, 24, SCREEN_H - 14);
+        ctx.restore();
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        const radius = Math.min(r, w / 2, h / 2);
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.arcTo(x + w, y, x + w, y + h, radius);
+        ctx.arcTo(x + w, y + h, x, y + h, radius);
+        ctx.arcTo(x, y + h, x, y, radius);
+        ctx.arcTo(x, y, x + w, y, radius);
+        ctx.closePath();
+      }
+
+      function renderTargetPreview() {
+        targetPreviewCtx.clearRect(0, 0, DRAW_SIZE, DRAW_SIZE);
+        if (!app.processed) {
+          return;
+        }
+        const image = targetPreviewCtx.createImageData(DRAW_SIZE, DRAW_SIZE);
+        for (let i = 0; i < app.processed.target.length; i += 1) {
+          const color = app.processed.target[i];
+          const offset = i * 4;
+          if (color < 0) {
+            image.data[offset + 3] = 0;
+          } else {
+            image.data[offset] = (color >> 16) & 255;
+            image.data[offset + 1] = (color >> 8) & 255;
+            image.data[offset + 2] = color & 255;
+            image.data[offset + 3] = 255;
+          }
+        }
+        targetPreviewCtx.putImageData(image, 0, 0);
+      }
+
+      function renderSourcePreview(canvas) {
+        sourcePreviewCtx.clearRect(0, 0, DRAW_SIZE, DRAW_SIZE);
+        if (canvas) {
+          sourcePreviewCtx.drawImage(canvas, 0, 0);
+        }
+      }
+
+      function updatePaletteSwatches(palette) {
+        dom.paletteSwatches.innerHTML = "";
+        if (!palette) {
+          return;
+        }
+        palette.forEach((entry) => {
+          const swatch = document.createElement("div");
+          swatch.className = "swatch";
+          swatch.style.background = colorToCss(entry.color, 1);
+          swatch.title = `${rgbToHex(entry.color)} • ${entry.count} px`;
+          swatch.dataset.count = entry.count > 999 ? `${Math.round(entry.count / 100) / 10}k` : String(entry.count);
+          dom.paletteSwatches.appendChild(swatch);
+        });
+      }
+
+      function buildScaledCanvas(image) {
+        const canvas = document.createElement("canvas");
+        canvas.width = DRAW_SIZE;
+        canvas.height = DRAW_SIZE;
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, DRAW_SIZE, DRAW_SIZE);
+        const scale = Math.min(1, DRAW_SIZE / image.width, DRAW_SIZE / image.height);
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const offsetX = Math.floor((DRAW_SIZE - width) / 2);
+        const offsetY = Math.floor((DRAW_SIZE - height) / 2);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(image, offsetX, offsetY, width, height);
+        return canvas;
+      }
+
+      function quantizeCanvas(canvas, colorLimit) {
+        const ctx = canvas.getContext("2d");
+        const imageData = ctx.getImageData(0, 0, DRAW_SIZE, DRAW_SIZE);
+        const pixels = imageData.data;
+        const opaqueIndices = [];
+        const colorCounts = new Map();
+        const originalColors = [];
+        for (let i = 0; i < DRAW_SIZE * DRAW_SIZE; i += 1) {
+          const offset = i * 4;
+          const alpha = pixels[offset + 3];
+          if (alpha < 16) {
+            originalColors.push(-1);
+            continue;
+          }
+          const r = pixels[offset];
+          const g = pixels[offset + 1];
+          const b = pixels[offset + 2];
+          const key = encodeColor(r, g, b);
+          originalColors.push(key);
+          opaqueIndices.push(i);
+          colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+        }
+
+        const uniqueColors = [...colorCounts.entries()].map(([color, count]) => ({
+          color,
+          count,
+          r: (color >> 16) & 255,
+          g: (color >> 8) & 255,
+          b: color & 255
+        }));
+
+        if (uniqueColors.length === 0) {
+          return {
+            target: createImageArray(-1),
+            palette: []
+          };
+        }
+
+        const palette = uniqueColors.length <= colorLimit
+          ? uniqueColors.map((entry) => ({ r: entry.r, g: entry.g, b: entry.b }))
+          : kMeansPalette(uniqueColors, colorLimit);
+
+        const snappedPalette = [
+          ...new Map(
+            palette.map((candidate) => {
+              const requested = encodeColor(candidate.r, candidate.g, candidate.b);
+              const nearest = findNearestMenuTarget(requested);
+              const decoded = decodeColor(nearest.actualColor);
+              return [nearest.actualColor, { r: decoded.r, g: decoded.g, b: decoded.b, actualColor: nearest.actualColor }];
+            })
+          ).values()
+        ];
+
+        const paletteCounts = new Map();
+        const target = createImageArray(-1);
+        for (let i = 0; i < originalColors.length; i += 1) {
+          const color = originalColors[i];
+          if (color < 0) {
+            continue;
+          }
+          const r = (color >> 16) & 255;
+          const g = (color >> 8) & 255;
+          const b = color & 255;
+          let bestIndex = 0;
+          let bestDistance = Number.POSITIVE_INFINITY;
+          for (let p = 0; p < snappedPalette.length; p += 1) {
+            const candidate = snappedPalette[p];
+            const dr = candidate.r - r;
+            const dg = candidate.g - g;
+            const db = candidate.b - b;
+            const dist = dr * dr + dg * dg + db * db;
+            if (dist < bestDistance) {
+              bestDistance = dist;
+              bestIndex = p;
+            }
+          }
+          const encoded = snappedPalette[bestIndex].actualColor;
+          target[i] = encoded;
+          paletteCounts.set(encoded, (paletteCounts.get(encoded) || 0) + 1);
+        }
+
+        const paletteSummary = [...paletteCounts.entries()]
+          .map(([color, count]) => ({ color, count }))
+          .sort((a, b) => b.count - a.count);
+
+        return { target, palette: paletteSummary };
+      }
+
+      function kMeansPalette(uniqueColors, k) {
+        const centers = [];
+        const first = uniqueColors.reduce((best, entry) => (entry.count > best.count ? entry : best), uniqueColors[0]);
+        centers.push({ r: first.r, g: first.g, b: first.b });
+
+        while (centers.length < k) {
+          let bestEntry = uniqueColors[0];
+          let bestScore = -1;
+          for (const entry of uniqueColors) {
+            let nearest = Number.POSITIVE_INFINITY;
+            for (const center of centers) {
+              const dr = center.r - entry.r;
+              const dg = center.g - entry.g;
+              const db = center.b - entry.b;
+              nearest = Math.min(nearest, dr * dr + dg * dg + db * db);
+            }
+            const weighted = nearest * entry.count;
+            if (weighted > bestScore) {
+              bestScore = weighted;
+              bestEntry = entry;
+            }
+          }
+          centers.push({ r: bestEntry.r, g: bestEntry.g, b: bestEntry.b });
+        }
+
+        for (let iteration = 0; iteration < 10; iteration += 1) {
+          const sums = centers.map(() => ({ r: 0, g: 0, b: 0, weight: 0 }));
+          for (const entry of uniqueColors) {
+            let bestIndex = 0;
+            let bestDistance = Number.POSITIVE_INFINITY;
+            for (let i = 0; i < centers.length; i += 1) {
+              const center = centers[i];
+              const dr = center.r - entry.r;
+              const dg = center.g - entry.g;
+              const db = center.b - entry.b;
+              const dist = dr * dr + dg * dg + db * db;
+              if (dist < bestDistance) {
+                bestDistance = dist;
+                bestIndex = i;
+              }
+            }
+            sums[bestIndex].r += entry.r * entry.count;
+            sums[bestIndex].g += entry.g * entry.count;
+            sums[bestIndex].b += entry.b * entry.count;
+            sums[bestIndex].weight += entry.count;
+          }
+
+          for (let i = 0; i < centers.length; i += 1) {
+            const sum = sums[i];
+            if (sum.weight === 0) {
+              continue;
+            }
+            centers[i] = {
+              r: Math.round(sum.r / sum.weight),
+              g: Math.round(sum.g / sum.weight),
+              b: Math.round(sum.b / sum.weight)
+            };
+          }
+        }
+
+        return centers;
+      }
+
+      function processLoadedImage() {
+        if (!app.loadedImage) {
+          app.processed = null;
+          renderSourcePreview(null);
+          renderTargetPreview();
+          updatePaletteSwatches(null);
+          dom.startButton.disabled = true;
+          return;
+        }
+        const scaled = buildScaledCanvas(app.loadedImage);
+        renderSourcePreview(scaled);
+        app.processed = quantizeCanvas(scaled, Number(dom.colorCount.value));
+        renderTargetPreview();
+        updatePaletteSwatches(app.processed.palette);
+        dom.startButton.disabled = false;
+        app.targetMatch = comparePixels(app.game.pixels, app.processed.target);
+      }
+
+      function comparePixels(a, b) {
+        if (!a || !b) {
+          return null;
+        }
+        let matches = 0;
+        for (let i = 0; i < b.length; i += 1) {
+          if (a[i] === b[i]) {
+            matches += 1;
+          }
+        }
+        return { matches, total: b.length };
+      }
+
+      function neighbors4(index) {
+        const x = index % DRAW_SIZE;
+        const y = Math.floor(index / DRAW_SIZE);
+        const result = [];
+        if (x > 0) {
+          result.push(index - 1);
+        }
+        if (x < DRAW_SIZE - 1) {
+          result.push(index + 1);
+        }
+        if (y > 0) {
+          result.push(index - DRAW_SIZE);
+        }
+        if (y < DRAW_SIZE - 1) {
+          result.push(index + DRAW_SIZE);
+        }
+        return result;
+      }
+
+      function neighbors8(index) {
+        const x = index % DRAW_SIZE;
+        const y = Math.floor(index / DRAW_SIZE);
+        const result = [];
+        for (let dy = -1; dy <= 1; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            if (dx === 0 && dy === 0) {
+              continue;
+            }
+            const nx = x + dx;
+            const ny = y + dy;
+            if (isInsideCanvas(nx, ny)) {
+              result.push(ny * DRAW_SIZE + nx);
+            }
+          }
+        }
+        return result;
+      }
+
+      function buildBoundaryMask(componentMask, pixels) {
+        const boundaryMask = new Uint8Array(componentMask.length);
+        const boundaryPixels = [];
+        for (const index of pixels) {
+          const x = index % DRAW_SIZE;
+          const y = Math.floor(index / DRAW_SIZE);
+          let isBoundary = x === 0 || y === 0 || x === DRAW_SIZE - 1 || y === DRAW_SIZE - 1;
+          if (!isBoundary) {
+            for (const neighbor of neighbors4(index)) {
+              if (!componentMask[neighbor]) {
+                isBoundary = true;
+                break;
+              }
+            }
+          }
+          if (isBoundary) {
+            boundaryMask[index] = 1;
+            boundaryPixels.push(index);
+          }
+        }
+        return { boundaryMask, boundaryPixels };
+      }
+
+      function pointKey(x, y) {
+        return `${x},${y}`;
+      }
+
+      function samePoint(a, b) {
+        return a.x === b.x && a.y === b.y;
+      }
+
+      function directionCode(dx, dy) {
+        if (dx === 1 && dy === 0) {
+          return 0;
+        }
+        if (dx === 0 && dy === 1) {
+          return 1;
+        }
+        if (dx === -1 && dy === 0) {
+          return 2;
+        }
+        return 3;
+      }
+
+      function chooseNextContourEdge(currentEdge, candidates, edges) {
+        if (candidates.length === 1) {
+          return candidates[0];
+        }
+        const currentDirection = directionCode(
+          currentEdge.endX - currentEdge.startX,
+          currentEdge.endY - currentEdge.startY
+        );
+        const turnPreference = [1, 0, 3, 2];
+        let bestIndex = candidates[0];
+        let bestScore = Number.POSITIVE_INFINITY;
+        for (const candidateIndex of candidates) {
+          const candidate = edges[candidateIndex];
+          const candidateDirection = directionCode(
+            candidate.endX - candidate.startX,
+            candidate.endY - candidate.startY
+          );
+          const delta = (candidateDirection - currentDirection + 4) % 4;
+          const score = turnPreference.indexOf(delta);
+          if (score < bestScore) {
+            bestScore = score;
+            bestIndex = candidateIndex;
+          }
+        }
+        return bestIndex;
+      }
+
+      function buildContourLoops(componentMask, pixels) {
+        const edges = [];
+        const outgoing = new Map();
+
+        function addEdge(startX, startY, endX, endY, pixelX, pixelY) {
+          const edge = { startX, startY, endX, endY, pixelX, pixelY };
+          const index = edges.length;
+          edges.push(edge);
+          const key = pointKey(startX, startY);
+          if (!outgoing.has(key)) {
+            outgoing.set(key, []);
+          }
+          outgoing.get(key).push(index);
+        }
+
+        for (const index of pixels) {
+          const x = index % DRAW_SIZE;
+          const y = Math.floor(index / DRAW_SIZE);
+          if (y === 0 || !componentMask[index - DRAW_SIZE]) {
+            addEdge(x, y, x + 1, y, x, y);
+          }
+          if (x === DRAW_SIZE - 1 || !componentMask[index + 1]) {
+            addEdge(x + 1, y, x + 1, y + 1, x, y);
+          }
+          if (y === DRAW_SIZE - 1 || !componentMask[index + DRAW_SIZE]) {
+            addEdge(x + 1, y + 1, x, y + 1, x, y);
+          }
+          if (x === 0 || !componentMask[index - 1]) {
+            addEdge(x, y + 1, x, y, x, y);
+          }
+        }
+
+        const used = new Uint8Array(edges.length);
+        const loops = [];
+        for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex += 1) {
+          if (used[edgeIndex]) {
+            continue;
+          }
+          const startEdge = edges[edgeIndex];
+          const startKey = pointKey(startEdge.startX, startEdge.startY);
+          const loopEdges = [];
+          let currentIndex = edgeIndex;
+
+          while (!used[currentIndex]) {
+            const edge = edges[currentIndex];
+            used[currentIndex] = 1;
+            loopEdges.push(edge);
+            const nextKey = pointKey(edge.endX, edge.endY);
+            if (nextKey === startKey) {
+              break;
+            }
+            const candidates = (outgoing.get(nextKey) || []).filter((candidate) => !used[candidate]);
+            if (candidates.length === 0) {
+              break;
+            }
+            currentIndex = chooseNextContourEdge(edge, candidates, edges);
+          }
+
+          const path = [];
+          for (const edge of loopEdges) {
+            const point = { x: edge.pixelX, y: edge.pixelY };
+            if (path.length === 0 || !samePoint(path[path.length - 1], point)) {
+              path.push(point);
+            }
+          }
+          if (path.length > 1 && !samePoint(path[0], path[path.length - 1])) {
+            path.push({ ...path[0] });
+          }
+          if (path.length > 0) {
+            loops.push(path);
+          }
+        }
+
+        return loops;
+      }
+
+      function buildComponentData(target, color) {
+        const visited = new Uint8Array(target.length);
+        const components = [];
+        for (let i = 0; i < target.length; i += 1) {
+          if (visited[i] || target[i] !== color) {
+            continue;
+          }
+          const queue = [i];
+          visited[i] = 1;
+          const pixels = [];
+          while (queue.length > 0) {
+            const index = queue.pop();
+            pixels.push(index);
+            for (const neighbor of neighbors4(index)) {
+              if (!visited[neighbor] && target[neighbor] === color) {
+                visited[neighbor] = 1;
+                queue.push(neighbor);
+              }
+            }
+          }
+
+          const componentMask = new Uint8Array(target.length);
+          pixels.forEach((index) => {
+            componentMask[index] = 1;
+          });
+
+          const { boundaryMask, boundaryPixels } = buildBoundaryMask(componentMask, pixels);
+          const walks = buildContourLoops(componentMask, pixels);
+
+          components.push({
+            pixels,
+            componentMask,
+            boundaryMask,
+            boundaryPixels,
+            walks,
+            area: pixels.length
+          });
+        }
+        return components.sort((a, b) => b.area - a.area);
+      }
+
+      function stampOnPixels(pixels, cx, cy, radius, color) {
+        for (let y = cy - radius; y <= cy + radius; y += 1) {
+          for (let x = cx - radius; x <= cx + radius; x += 1) {
+            if (!isInsideCanvas(x, y)) {
+              continue;
+            }
+            const dx = x - cx;
+            const dy = y - cy;
+            if (dx * dx + dy * dy <= radius * radius) {
+              pixels[y * DRAW_SIZE + x] = color;
+            }
+          }
+        }
+      }
+
+      function drawStrokeOnPixels(pixels, previousPos, currentPos, color, radius) {
+        const length = Math.max(1, Math.ceil(distance(previousPos.x, previousPos.y, currentPos.x, currentPos.y) * 2));
+        for (let i = 0; i <= length; i += 1) {
+          const t = i / length;
+          const x = Math.round(lerp(previousPos.x, currentPos.x, t));
+          const y = Math.round(lerp(previousPos.y, currentPos.y, t));
+          stampOnPixels(pixels, x, y, radius, color);
+        }
+      }
+
+      function simulateLoopOnPlanner(pixels, walk, color) {
+        if (walk.length === 0) {
+          return;
+        }
+        if (walk.length === 1) {
+          stampOnPixels(pixels, walk[0].x, walk[0].y, PEN_SIZES[0], color);
+          return;
+        }
+        for (let i = 1; i < walk.length; i += 1) {
+          drawStrokeOnPixels(pixels, walk[i - 1], walk[i], color, PEN_SIZES[0]);
+        }
+      }
+
+      function bucketFillOnPixels(pixels, x, y, replacementColor) {
+        if (!isInsideCanvas(x, y)) {
+          return;
+        }
+        const startIndex = y * DRAW_SIZE + x;
+        const targetColor = pixels[startIndex];
+        if (targetColor === replacementColor) {
+          return;
+        }
+        const queue = [startIndex];
+        const visited = new Uint8Array(pixels.length);
+        visited[startIndex] = 1;
+        while (queue.length > 0) {
+          const index = queue.pop();
+          if (pixels[index] !== targetColor) {
+            continue;
+          }
+          pixels[index] = replacementColor;
+          for (const neighbor of neighbors4(index)) {
+            if (!visited[neighbor] && pixels[neighbor] === targetColor) {
+              visited[neighbor] = 1;
+              queue.push(neighbor);
+            }
+          }
+        }
+      }
+
+      function buildPlannerFillSeeds(component, plannerPixels, targetColor) {
+        const visited = new Uint8Array(component.componentMask.length);
+        const seeds = [];
+        for (let i = 0; i < component.componentMask.length; i += 1) {
+          if (!component.componentMask[i] || component.boundaryMask[i] || visited[i]) {
+            continue;
+          }
+          const baseColor = plannerPixels[i];
+          const queue = [i];
+          visited[i] = 1;
+          let best = i;
+          let bestNeighbors = -1;
+          while (queue.length > 0) {
+            const index = queue.pop();
+            const sameNeighbors = neighbors4(index).reduce((count, neighbor) => {
+              return count + (
+                component.componentMask[neighbor] &&
+                !component.boundaryMask[neighbor] &&
+                plannerPixels[neighbor] === baseColor
+                  ? 1
+                  : 0
+              );
+            }, 0);
+            if (sameNeighbors > bestNeighbors) {
+              bestNeighbors = sameNeighbors;
+              best = index;
+            }
+            for (const neighbor of neighbors4(index)) {
+              if (
+                !visited[neighbor] &&
+                component.componentMask[neighbor] &&
+                !component.boundaryMask[neighbor] &&
+                plannerPixels[neighbor] === baseColor
+              ) {
+                visited[neighbor] = 1;
+                queue.push(neighbor);
+              }
+            }
+          }
+          if (baseColor !== targetColor) {
+            seeds.push({
+              x: best % DRAW_SIZE,
+              y: Math.floor(best / DRAW_SIZE),
+              baseColor
+            });
+          }
+        }
+        return seeds;
+      }
+
+      function evaluatePlannerFill(component, plannerPixels, targetColor) {
+        const before = plannerPixels.slice();
+        const after = plannerPixels.slice();
+        const seeds = buildPlannerFillSeeds(component, after, targetColor);
+        for (const seed of seeds) {
+          bucketFillOnPixels(after, seed.x, seed.y, targetColor);
+        }
+
+        let leak = false;
+        for (let i = 0; i < after.length; i += 1) {
+          if (!component.componentMask[i] && after[i] !== before[i]) {
+            leak = true;
+            break;
+          }
+        }
+
+        let complete = true;
+        for (const index of component.pixels) {
+          if (after[index] !== targetColor) {
+            complete = false;
+            break;
+          }
+        }
+
+        return {
+          safe: complete && !leak,
+          complete,
+          leak,
+          seeds,
+          after
+        };
+      }
+
+      function buildPenFillRuns(component, plannerPixels, targetColor) {
+        const runs = [];
+        for (let y = 0; y < DRAW_SIZE; y += 1) {
+          let x = 0;
+          while (x < DRAW_SIZE) {
+            const index = y * DRAW_SIZE + x;
+            if (!component.componentMask[index] || plannerPixels[index] === targetColor) {
+              x += 1;
+              continue;
+            }
+
+            const startX = x;
+            while (x + 1 < DRAW_SIZE) {
+              const nextIndex = y * DRAW_SIZE + (x + 1);
+              if (!component.componentMask[nextIndex] || plannerPixels[nextIndex] === targetColor) {
+                break;
+              }
+              x += 1;
+            }
+            runs.push({ y, startX, endX: x });
+            x += 1;
+          }
+        }
+        return runs;
+      }
+
+      function buildRunPoints(run, reversed = false) {
+        const points = [];
+        if (reversed) {
+          for (let x = run.endX; x >= run.startX; x -= 1) {
+            points.push({ x, y: run.y });
+          }
+        } else {
+          for (let x = run.startX; x <= run.endX; x += 1) {
+            points.push({ x, y: run.y });
+          }
+        }
+        return points;
+      }
+
+      function orderPenRuns(runs, currentScreenPos) {
+        const remaining = runs.slice();
+        const ordered = [];
+        let cursor = { ...currentScreenPos };
+        while (remaining.length > 0) {
+          let bestIndex = 0;
+          let bestReversed = false;
+          let bestDistance = Number.POSITIVE_INFINITY;
+          for (let i = 0; i < remaining.length; i += 1) {
+            const run = remaining[i];
+            const left = canvasToScreenCoord(run.startX, run.y);
+            const right = canvasToScreenCoord(run.endX, run.y);
+            const leftDistance = distance(cursor.x, cursor.y, left.x, left.y);
+            const rightDistance = distance(cursor.x, cursor.y, right.x, right.y);
+            if (leftDistance < bestDistance) {
+              bestDistance = leftDistance;
+              bestIndex = i;
+              bestReversed = false;
+            }
+            if (rightDistance < bestDistance) {
+              bestDistance = rightDistance;
+              bestIndex = i;
+              bestReversed = true;
+            }
+          }
+          const run = remaining.splice(bestIndex, 1)[0];
+          ordered.push({ run, reversed: bestReversed });
+          const endPoint = bestReversed
+            ? canvasToScreenCoord(run.startX, run.y)
+            : canvasToScreenCoord(run.endX, run.y);
+          cursor = { ...endPoint };
+        }
+        return ordered;
+      }
+
+      function pushWait(commands, frames, label = "Wait") {
+        if (frames > 0) {
+          commands.push({ type: "wait", frames, label });
+        }
+      }
+
+      function pushTap(commands, button, label = `Tap ${button}`, holdFrames = 1, releaseFrames = 1) {
+        commands.push({ type: "tap", button, holdFrames, releaseFrames, label });
+      }
+
+      function pushMoveCursor(commands, x, y, label) {
+        commands.push({ type: "moveCursor", x, y, label });
+      }
+
+      function pushMoveColorCursor(commands, x, y, label) {
+        commands.push({ type: "moveColorCursor", x, y, label });
+      }
+
+      function estimateFrames(commands) {
+        let frames = 0;
+        let cursor = { x: SCREEN_W / 2, y: SCREEN_H / 2 };
+        let colorCursor = { x: 0, y: COLOR_BOX_H - 1 };
+        for (const command of commands) {
+          if (command.type === "wait") {
+            frames += command.frames;
+          } else if (command.type === "tap") {
+            frames += (command.holdFrames ?? 1) + (command.releaseFrames ?? 1);
+          } else if (command.type === "moveCursor") {
+            frames += Math.ceil(distance(cursor.x, cursor.y, command.x, command.y) / (FREE_SPEED * FRAME_DT));
+            cursor = { x: command.x, y: command.y };
+          } else if (command.type === "moveColorCursor") {
+            frames += Math.ceil(distance(colorCursor.x, colorCursor.y, command.x, command.y) / (DRAW_SPEED * FRAME_DT));
+            colorCursor = { x: command.x, y: command.y };
+          } else if (command.type === "tracePath") {
+            if (command.points.length === 0) {
+              continue;
+            }
+            let previous = traceCanvasToScreenCoord(command.points[0].x, command.points[0].y);
+            frames += Math.ceil(distance(cursor.x, cursor.y, previous.x, previous.y) / (FREE_SPEED * FRAME_DT));
+            cursor = { ...previous };
+            for (let i = 0; i < command.points.length; i += 1) {
+              const point = traceCanvasToScreenCoord(command.points[i].x, command.points[i].y);
+              frames += Math.ceil(distance(cursor.x, cursor.y, point.x, point.y) / (DRAW_SPEED * FRAME_DT));
+              cursor = { ...point };
+              previous = point;
+            }
+          }
+        }
+        return frames;
+      }
+
+      function pushOpenPenSettings(commands) {
+        pushTap(commands, "X", "Open tool menu");
+        pushWait(commands, 1, "Wait 2 frames total");
+        pushTap(commands, "X", "Open pen settings");
+        for (let i = 0; i < 5; i += 1) {
+          pushTap(commands, "LEFT", `Pen brush left ${i + 1}`);
+        }
+        pushTap(commands, "A", "Confirm smallest pen");
+      }
+
+      function pushOpenEraserSettings(commands) {
+        pushTap(commands, "X", "Open tool menu");
+        pushWait(commands, 1, "Wait 2 frames total");
+        pushTap(commands, "RIGHT", "Select eraser");
+        pushTap(commands, "X", "Open eraser settings");
+        pushTap(commands, "DOWN", "Move to erase canvas 1");
+        pushTap(commands, "DOWN", "Move to erase canvas 2");
+        pushTap(commands, "A", "Erase canvas");
+      }
+
+      function pushSwitchTool(commands, currentTool, targetTool) {
+        if (currentTool === targetTool) {
+          return currentTool;
+        }
+        pushTap(commands, "X", "Open tool menu");
+        pushWait(commands, 1, "Wait 2 frames total");
+
+        const currentIndex = TOOL_INDEX[currentTool];
+        const targetIndex = TOOL_INDEX[targetTool];
+        const direction = targetIndex < currentIndex ? "LEFT" : "RIGHT";
+        const steps = Math.abs(targetIndex - currentIndex);
+        for (let i = 0; i < steps; i += 1) {
+          pushTap(commands, direction, `Move to ${targetTool} ${i + 1}/${steps}`);
+        }
+        pushTap(commands, "A", `Confirm ${targetTool}`);
+        return targetTool;
+      }
+
+      function pushSelectColor(commands, currentHueStep, targetColor) {
+        const target = findNearestMenuTarget(targetColor);
+        pushTap(commands, "Y", "Color menu step 1");
+        pushWait(commands, 1, "Wait 2 frames total");
+        pushTap(commands, "Y", "Color menu step 2");
+        pushTap(commands, "R", "Color menu confirm step");
+        pushWait(commands, 1, "Wait 2 frames total");
+
+        let hue = currentHueStep;
+        const forward = (target.hueStep - hue + HUE_STEPS) % HUE_STEPS;
+        const backward = (hue - target.hueStep + HUE_STEPS) % HUE_STEPS;
+        if (forward <= backward) {
+          for (let i = 0; i < forward; i += 1) {
+            pushTap(commands, "ZR", `Hue + ${i + 1}`);
+          }
+          hue = target.hueStep;
+        } else {
+          for (let i = 0; i < backward; i += 1) {
+            pushTap(commands, "ZL", `Hue - ${i + 1}`);
+          }
+          hue = target.hueStep;
+        }
+
+        pushMoveColorCursor(commands, target.x, target.y, "Move color cursor");
+        pushTap(commands, "A", `Confirm ${rgbToHex(targetColor)}`);
+        return hue;
+      }
+
+      function nearestWalkOrder(items, currentScreenPos, pointAccessor) {
+        const remaining = items.slice();
+        const ordered = [];
+        let cursor = { ...currentScreenPos };
+        while (remaining.length > 0) {
+          let bestIndex = 0;
+          let bestDistance = Number.POSITIVE_INFINITY;
+          for (let i = 0; i < remaining.length; i += 1) {
+            const point = pointAccessor(remaining[i]);
+            const screenPoint = canvasToScreenCoord(point.x, point.y);
+            const dist = distance(cursor.x, cursor.y, screenPoint.x, screenPoint.y);
+            if (dist < bestDistance) {
+              bestDistance = dist;
+              bestIndex = i;
+            }
+          }
+          const chosen = remaining.splice(bestIndex, 1)[0];
+          ordered.push(chosen);
+          const endPoint = pointAccessor(chosen, true);
+          const screenEnd = canvasToScreenCoord(endPoint.x, endPoint.y);
+          cursor = { ...screenEnd };
+        }
+        return ordered;
+      }
+
+      async function buildPlan(processed) {
+        const commands = [];
+        const plannerPixels = createImageArray(-1);
+        let currentTool = "pen";
+        let currentHueStep = 0;
+        let cursorScreen = { x: SCREEN_W / 2, y: SCREEN_H / 2 };
+
+        pushOpenPenSettings(commands);
+        pushOpenEraserSettings(commands);
+        currentTool = "pen";
+
+        const colors = processed.palette.map((entry) => entry.color);
+        for (let colorIndex = 0; colorIndex < colors.length; colorIndex += 1) {
+          const color = colors[colorIndex];
+          dom.plannerStatus.textContent = `Planning ${colorIndex + 1}/${colors.length}`;
+          const components = buildComponentData(processed.target, color);
+          currentHueStep = pushSelectColor(commands, currentHueStep, color);
+          currentTool = pushSwitchTool(commands, currentTool, "pen");
+
+          for (const component of components) {
+            const loops = component.walks
+              .filter((walk) => walk.length > 0)
+              .map((walk) => ({ walk, start: walk[0], end: walk[walk.length - 1] }));
+
+            const orderedLoops = nearestWalkOrder(
+              loops,
+              cursorScreen,
+              (item, useEnd = false) => (useEnd ? item.end : item.start)
+            );
+
+            currentTool = pushSwitchTool(commands, currentTool, "pen");
+            for (const loop of orderedLoops) {
+              const start = traceCanvasToScreenCoord(loop.start.x, loop.start.y);
+              pushMoveCursor(commands, start.x, start.y, `Move to outline ${rgbToHex(color)}`);
+              if (loop.walk.length === 1) {
+                pushTap(commands, "A", `Dot outline ${rgbToHex(color)}`);
+              } else {
+                commands.push({
+                  type: "tracePath",
+                  points: loop.walk,
+                  label: `Trace outline ${rgbToHex(color)}`
+                });
+              }
+              simulateLoopOnPlanner(plannerPixels, loop.walk, color);
+              const end = traceCanvasToScreenCoord(loop.end.x, loop.end.y);
+              cursorScreen = { ...end };
+            }
+
+            const fillPlan = evaluatePlannerFill(component, plannerPixels, color);
+            if (fillPlan.safe && fillPlan.seeds.length > 0) {
+              currentTool = pushSwitchTool(commands, currentTool, "bucket");
+              const orderedSeeds = nearestWalkOrder(
+                fillPlan.seeds.map((seed) => ({ start: seed, end: seed })),
+                cursorScreen,
+                (item) => item.start
+              );
+              for (const item of orderedSeeds) {
+                const seed = item.start;
+                const screenPoint = canvasToScreenCoord(seed.x, seed.y);
+                pushMoveCursor(commands, screenPoint.x, screenPoint.y, `Move to fill ${rgbToHex(color)}`);
+                pushTap(commands, "A", `Bucket fill ${rgbToHex(color)}`);
+                cursorScreen = { ...screenPoint };
+              }
+              plannerPixels.set(fillPlan.after);
+            } else if (!fillPlan.complete || fillPlan.leak) {
+              currentTool = pushSwitchTool(commands, currentTool, "pen");
+              const runs = buildPenFillRuns(component, plannerPixels, color);
+              const orderedRuns = orderPenRuns(runs, cursorScreen);
+              for (const entry of orderedRuns) {
+                const points = buildRunPoints(entry.run, entry.reversed);
+                const start = traceCanvasToScreenCoord(points[0].x, points[0].y);
+                pushMoveCursor(commands, start.x, start.y, `Move to cleanup ${rgbToHex(color)}`);
+                if (points.length === 1) {
+                  pushTap(commands, "A", `Dot cleanup ${rgbToHex(color)}`);
+                } else {
+                  commands.push({
+                    type: "tracePath",
+                    points,
+                    label: `Pen fill cleanup ${rgbToHex(color)}`
+                  });
+                }
+                simulateLoopOnPlanner(plannerPixels, points, color);
+                const end = traceCanvasToScreenCoord(points[points.length - 1].x, points[points.length - 1].y);
+                cursorScreen = { ...end };
+              }
+            }
+          }
+
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+        }
+
+        currentTool = pushSwitchTool(commands, currentTool, "pen");
+
+        return commands;
+      }
+
+      function resetRun() {
+        app.game.reset();
+        app.controller = null;
+        app.stopwatchSeconds = 0;
+        app.frameCount = 0;
+        app.simulationRunning = false;
+        app.currentInput = { analog: { x: 0, y: 0 }, buttons: emptyButtons() };
+        app.targetMatch = app.processed ? comparePixels(app.game.pixels, app.processed.target) : null;
+        app.estimatedFrames = null;
+        app.lastLoggedCommand = null;
+        dom.plannerStatus.textContent = "Idle";
+        addLogLine("Reset simulation");
+      }
+
+      async function startRun() {
+        if (!app.processed || app.plannerBusy) {
+          return;
+        }
+        resetRun();
+        app.plannerBusy = true;
+        dom.startButton.disabled = true;
+        dom.plannerStatus.textContent = "Planning";
+        addLogLine("Planning input sequence");
+        const commands = await buildPlan(app.processed);
+        app.estimatedFrames = estimateFrames(commands);
+        app.controller = new PlaybackController(commands);
+        app.simulationRunning = true;
+        app.plannerBusy = false;
+        dom.plannerStatus.textContent = "Running";
+        dom.startButton.disabled = false;
+        addLogLine(`Plan ready: ${commands.length} commands, ${formatDurationFromFrames(app.estimatedFrames)}`);
+      }
+
+      function stepSimulation() {
+        if (app.simulationRunning && app.controller) {
+          const iterations = app.playbackSpeed;
+          for (let i = 0; i < iterations; i += 1) {
+            if (!app.simulationRunning || !app.controller) {
+              break;
+            }
+            app.currentInput = app.controller.currentInput(app.game);
+            if (!app.controller.done && app.controller.currentLabel !== app.lastLoggedCommand) {
+              addLogLine(app.controller.currentLabel);
+              app.lastLoggedCommand = app.controller.currentLabel;
+            }
+            if (app.controller.done) {
+              app.simulationRunning = false;
+              dom.plannerStatus.textContent = "Finished";
+              addLogLine(`Finished in ${formatTime(app.stopwatchSeconds)}`);
+              app.currentInput = { analog: { x: 0, y: 0 }, buttons: emptyButtons() };
+              break;
+            }
+            app.game.step(app.currentInput, FRAME_DT);
+            app.stopwatchSeconds += FRAME_DT;
+            app.frameCount += 1;
+          }
+          app.targetMatch = app.processed ? comparePixels(app.game.pixels, app.processed.target) : null;
+        }
+      }
+
+      function animationLoop() {
+        stepSimulation();
+        renderScreen();
+        renderUi();
+        requestAnimationFrame(animationLoop);
+      }
+
+      dom.imageInput.addEventListener("change", (event) => {
+        const [file] = event.target.files || [];
+        if (!file) {
+          return;
+        }
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          app.loadedImage = image;
+          processLoadedImage();
+          addLogLine(`Loaded image: ${file.name}`);
+          URL.revokeObjectURL(url);
+        };
+        image.src = url;
+      });
+
+      dom.colorCount.addEventListener("input", () => {
+        dom.colorCountValue.textContent = dom.colorCount.value;
+        processLoadedImage();
+      });
+
+      dom.speedSelect.addEventListener("change", () => {
+        app.playbackSpeed = Number(dom.speedSelect.value);
+      });
+
+      dom.startButton.addEventListener("click", () => {
+        startRun().catch((error) => {
+          console.error(error);
+          dom.plannerStatus.textContent = "Error";
+          addLogLine(`Planner error: ${error.message}`);
+          app.plannerBusy = false;
+          dom.startButton.disabled = false;
+        });
+      });
+
+      dom.resetButton.addEventListener("click", () => {
+        resetRun();
+      });
+
+      app.playbackSpeed = Number(dom.speedSelect.value);
+      renderScreen();
+      renderUi();
+      addLogLine("Waiting for image");
+      requestAnimationFrame(animationLoop);
+    })();
+  </script>
+</body>
+</html>
