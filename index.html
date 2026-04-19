@@ -2502,6 +2502,81 @@
         return points;
       }
 
+      function rotateClosedWalk(walk, startIndex) {
+        if (walk.length <= 1) {
+          return walk.slice();
+        }
+        const closed = samePoint(walk[0], walk[walk.length - 1]);
+        const points = closed ? walk.slice(0, -1) : walk.slice();
+        if (points.length === 0) {
+          return [];
+        }
+        const normalizedIndex = ((startIndex % points.length) + points.length) % points.length;
+        const rotated = points.slice(normalizedIndex).concat(points.slice(0, normalizedIndex));
+        if (closed) {
+          rotated.push({ ...rotated[0] });
+        }
+        return rotated;
+      }
+
+      function findNearestTracePoint(walk, currentScreenPos) {
+        const limit = walk.length > 1 && samePoint(walk[0], walk[walk.length - 1])
+          ? walk.length - 1
+          : walk.length;
+        let bestIndex = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < limit; i += 1) {
+          const point = walk[i];
+          const screenPoint = traceCanvasToScreenCoord(point.x, point.y);
+          const dist = distance(currentScreenPos.x, currentScreenPos.y, screenPoint.x, screenPoint.y);
+          if (dist < bestDistance) {
+            bestDistance = dist;
+            bestIndex = i;
+          }
+        }
+        return { index: bestIndex, distance: bestDistance };
+      }
+
+      function takeNearestComponent(components, currentScreenPos) {
+        let bestIndex = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < components.length; i += 1) {
+          const component = components[i];
+          for (const walk of component.walks) {
+            if (walk.length === 0) {
+              continue;
+            }
+            const nearest = findNearestTracePoint(walk, currentScreenPos);
+            if (nearest.distance < bestDistance) {
+              bestDistance = nearest.distance;
+              bestIndex = i;
+            }
+          }
+        }
+        return components.splice(bestIndex, 1)[0];
+      }
+
+      function takeNearestRotatedLoop(walks, currentScreenPos) {
+        let bestLoopIndex = 0;
+        let bestPointIndex = 0;
+        let bestDistance = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < walks.length; i += 1) {
+          const nearest = findNearestTracePoint(walks[i], currentScreenPos);
+          if (nearest.distance < bestDistance) {
+            bestDistance = nearest.distance;
+            bestLoopIndex = i;
+            bestPointIndex = nearest.index;
+          }
+        }
+        const walk = walks.splice(bestLoopIndex, 1)[0];
+        const rotated = rotateClosedWalk(walk, bestPointIndex);
+        return {
+          walk: rotated,
+          start: rotated[0],
+          end: rotated[rotated.length - 1]
+        };
+      }
+
       function orderPenRuns(runs, currentScreenPos) {
         const remaining = runs.slice();
         const ordered = [];
@@ -2512,8 +2587,8 @@
           let bestDistance = Number.POSITIVE_INFINITY;
           for (let i = 0; i < remaining.length; i += 1) {
             const run = remaining[i];
-            const left = canvasToScreenCoord(run.startX, run.y);
-            const right = canvasToScreenCoord(run.endX, run.y);
+            const left = traceCanvasToScreenCoord(run.startX, run.y);
+            const right = traceCanvasToScreenCoord(run.endX, run.y);
             const leftDistance = distance(cursor.x, cursor.y, left.x, left.y);
             const rightDistance = distance(cursor.x, cursor.y, right.x, right.y);
             if (leftDistance < bestDistance) {
@@ -2530,8 +2605,8 @@
           const run = remaining.splice(bestIndex, 1)[0];
           ordered.push({ run, reversed: bestReversed });
           const endPoint = bestReversed
-            ? canvasToScreenCoord(run.startX, run.y)
-            : canvasToScreenCoord(run.endX, run.y);
+            ? traceCanvasToScreenCoord(run.startX, run.y)
+            : traceCanvasToScreenCoord(run.endX, run.y);
           cursor = { ...endPoint };
         }
         return ordered;
@@ -2694,23 +2769,19 @@
         for (let colorIndex = 0; colorIndex < colors.length; colorIndex += 1) {
           const color = colors[colorIndex];
           dom.plannerStatus.textContent = `Planning ${colorIndex + 1}/${colors.length}`;
-          const components = buildComponentData(processed.target, color);
+          const remainingComponents = buildComponentData(processed.target, color);
           currentHueStep = pushSelectColor(commands, currentHueStep, color);
           currentTool = pushSwitchTool(commands, currentTool, "pen");
 
-          for (const component of components) {
-            const loops = component.walks
+          while (remainingComponents.length > 0) {
+            const component = takeNearestComponent(remainingComponents, cursorScreen);
+            const remainingLoops = component.walks
               .filter((walk) => walk.length > 0)
-              .map((walk) => ({ walk, start: walk[0], end: walk[walk.length - 1] }));
-
-            const orderedLoops = nearestWalkOrder(
-              loops,
-              cursorScreen,
-              (item, useEnd = false) => (useEnd ? item.end : item.start)
-            );
+              .map((walk) => walk.slice());
 
             currentTool = pushSwitchTool(commands, currentTool, "pen");
-            for (const loop of orderedLoops) {
+            while (remainingLoops.length > 0) {
+              const loop = takeNearestRotatedLoop(remainingLoops, cursorScreen);
               const start = traceCanvasToScreenCoord(loop.start.x, loop.start.y);
               pushMoveCursor(commands, start.x, start.y, `Move to outline ${rgbToHex(color)}`);
               if (loop.walk.length === 1) {

@@ -647,6 +647,63 @@ def build_run_points(run: dict, reversed_run: bool = False) -> list[dict]:
     return points
 
 
+def rotate_closed_walk(walk: list[dict], start_index: int) -> list[dict]:
+    if len(walk) <= 1:
+        return walk[:]
+    closed = same_point(walk[0], walk[-1])
+    points = walk[:-1] if closed else walk[:]
+    if not points:
+        return []
+    normalized_index = ((start_index % len(points)) + len(points)) % len(points)
+    rotated = points[normalized_index:] + points[:normalized_index]
+    if closed:
+        rotated.append(dict(rotated[0]))
+    return rotated
+
+
+def find_nearest_trace_point(walk: list[dict], current_screen_pos: dict) -> dict:
+    limit = len(walk) - 1 if len(walk) > 1 and same_point(walk[0], walk[-1]) else len(walk)
+    best_index = 0
+    best_distance = float("inf")
+    for i in range(limit):
+        point = walk[i]
+        sx, sy = trace_canvas_to_screen_coord(point["x"], point["y"])
+        dist = distance(current_screen_pos["x"], current_screen_pos["y"], sx, sy)
+        if dist < best_distance:
+            best_distance = dist
+            best_index = i
+    return {"index": best_index, "distance": best_distance}
+
+
+def take_nearest_component(components: list[Component], current_screen_pos: dict) -> Component:
+    best_index = 0
+    best_distance = float("inf")
+    for i, component in enumerate(components):
+        for walk in component.walks:
+            if not walk:
+                continue
+            nearest = find_nearest_trace_point(walk, current_screen_pos)
+            if nearest["distance"] < best_distance:
+                best_distance = nearest["distance"]
+                best_index = i
+    return components.pop(best_index)
+
+
+def take_nearest_rotated_loop(walks: list[list[dict]], current_screen_pos: dict) -> dict:
+    best_loop_index = 0
+    best_point_index = 0
+    best_distance = float("inf")
+    for i, walk in enumerate(walks):
+        nearest = find_nearest_trace_point(walk, current_screen_pos)
+        if nearest["distance"] < best_distance:
+            best_distance = nearest["distance"]
+            best_loop_index = i
+            best_point_index = nearest["index"]
+    walk = walks.pop(best_loop_index)
+    rotated = rotate_closed_walk(walk, best_point_index)
+    return {"walk": rotated, "start": rotated[0], "end": rotated[-1]}
+
+
 def nearest_walk_order(items: list[dict], current_screen_pos: dict, point_accessor: Callable) -> list[dict]:
     remaining = items[:]
     ordered = []
@@ -678,8 +735,8 @@ def order_pen_runs(runs: list[dict], current_screen_pos: dict) -> list[dict]:
         best_reversed = False
         best_distance = float("inf")
         for i, run in enumerate(remaining):
-            left_x, left_y = canvas_to_screen_coord(run["startX"], run["y"])
-            right_x, right_y = canvas_to_screen_coord(run["endX"], run["y"])
+            left_x, left_y = trace_canvas_to_screen_coord(run["startX"], run["y"])
+            right_x, right_y = trace_canvas_to_screen_coord(run["endX"], run["y"])
             left_distance = distance(cursor["x"], cursor["y"], left_x, left_y)
             right_distance = distance(cursor["x"], cursor["y"], right_x, right_y)
             if left_distance < best_distance:
@@ -692,7 +749,7 @@ def order_pen_runs(runs: list[dict], current_screen_pos: dict) -> list[dict]:
                 best_reversed = True
         run = remaining.pop(best_index)
         ordered.append({"run": run, "reversed": best_reversed})
-        end_x, end_y = canvas_to_screen_coord(run["startX"] if best_reversed else run["endX"], run["y"])
+        end_x, end_y = trace_canvas_to_screen_coord(run["startX"] if best_reversed else run["endX"], run["y"])
         cursor = {"x": end_x, "y": end_y}
     return ordered
 
@@ -792,23 +849,16 @@ def build_plan(processed: ProcessedImage) -> tuple[list[dict], list[int]]:
 
     colors = [entry["color"] for entry in processed.palette]
     for color in colors:
-        components = build_component_data(processed.target, color)
+        remaining_components = build_component_data(processed.target, color)
         current_hue_step = push_select_color(commands, current_hue_step, color)
         current_tool = push_switch_tool(commands, current_tool, "pen")
-        for component in components:
-            loops = [
-                {"walk": walk, "start": walk[0], "end": walk[-1]}
-                for walk in component.walks
-                if walk
-            ]
-            ordered_loops = nearest_walk_order(
-                loops,
-                cursor_screen,
-                lambda item, use_end=False: item["end"] if use_end else item["start"],
-            )
+        while remaining_components:
+            component = take_nearest_component(remaining_components, cursor_screen)
+            remaining_loops = [walk[:] for walk in component.walks if walk]
 
             current_tool = push_switch_tool(commands, current_tool, "pen")
-            for loop in ordered_loops:
+            while remaining_loops:
+                loop = take_nearest_rotated_loop(remaining_loops, cursor_screen)
                 start_x, start_y = trace_canvas_to_screen_coord(loop["start"]["x"], loop["start"]["y"])
                 push_move_cursor(commands, start_x, start_y, f"Move to outline {rgb_to_hex(color)}")
                 if len(loop["walk"]) == 1:
