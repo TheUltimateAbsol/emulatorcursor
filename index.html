@@ -485,6 +485,22 @@
       padding-right: 6px;
     }
 
+    .code-preview {
+      margin-top: 10px;
+      max-height: 220px;
+      overflow: auto;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(7, 11, 17, 0.7);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
     .log-line {
       font-family: var(--mono);
       font-size: 12px;
@@ -665,6 +681,28 @@
         <div class="input-log" id="inputLog"></div>
       </section>
 
+      <section class="card">
+        <h2>G-code Export</h2>
+        <div class="grid-2">
+          <div class="stat">
+            <div class="stat-label">Lines</div>
+            <div class="stat-value" id="gcodeLines">--</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Size</div>
+            <div class="stat-value" id="gcodeSize">--</div>
+          </div>
+        </div>
+        <div class="button-row" style="margin-top: 10px;">
+          <button id="copyGcodeButton" class="secondary" disabled>Copy G-code</button>
+          <button id="downloadGcodeButton" class="secondary" disabled>Download</button>
+        </div>
+        <pre class="code-preview" id="gcodePreview">Plan the current image to generate controller G-code.</pre>
+        <p class="tiny-help">
+          This is a compact custom G-code-inspired export for the controller plan, not machine-standard CNC G-code.
+        </p>
+      </section>
+
       <section class="footer-note">
         The color picker uses the common HSV-style pattern implied by your description:
         horizontal movement changes saturation, vertical movement changes value, and the bottom hue strip is stepped with `ZR` and `ZL`.
@@ -682,8 +720,8 @@
       const DRAW_LEFT = (SCREEN_W - DRAW_SIZE) / 2;
       const DRAW_TOP = (SCREEN_H - DRAW_SIZE) / 2;
       const FRAME_DT = 1 / 60;
-      const FREE_SPEED = 90;
-      const DRAW_SPEED = 60;
+      const DRAW_SPEED = 120;
+      const FREE_SPEED = DRAW_SPEED * 2.5;
       const COLOR_BOX_W = 200;
       const COLOR_BOX_H = 100;
       const HUE_BAR_W = 200;
@@ -729,6 +767,11 @@
         targetPreview: document.getElementById("targetPreview"),
         paletteSwatches: document.getElementById("paletteSwatches"),
         inputLog: document.getElementById("inputLog"),
+        gcodeLines: document.getElementById("gcodeLines"),
+        gcodeSize: document.getElementById("gcodeSize"),
+        gcodePreview: document.getElementById("gcodePreview"),
+        copyGcodeButton: document.getElementById("copyGcodeButton"),
+        downloadGcodeButton: document.getElementById("downloadGcodeButton"),
         stickDot: document.getElementById("stickDot"),
         analogStatus: document.getElementById("analogStatus")
       };
@@ -962,6 +1005,16 @@
 
       function formatDurationFromFrames(frames) {
         return formatTime(frames / 60);
+      }
+
+      function formatBytes(bytes) {
+        if (bytes < 1024) {
+          return `${bytes} B`;
+        }
+        if (bytes < 1024 * 1024) {
+          return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+        }
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
       }
 
       function addLogLine(message) {
@@ -1521,8 +1574,75 @@
         currentInput: { analog: { x: 0, y: 0 }, buttons: emptyButtons() },
         targetMatch: null,
         estimatedFrames: null,
-        lastLoggedCommand: null
+        lastLoggedCommand: null,
+        gcodeText: "",
+        gcodeStats: null,
+        loadedFileName: ""
       };
+
+      function buildControllerGcode(commands) {
+        const lines = [
+          "; Drawing Game Controller G-code",
+          "; Custom G-code-inspired export, not machine-standard CNC G-code",
+          "G90",
+          "G21"
+        ];
+
+        for (const command of commands) {
+          if (command.type === "wait") {
+            lines.push(`G4 P${command.frames}`);
+          } else if (command.type === "tap") {
+            lines.push(`M240 B${command.button} H${command.holdFrames ?? 1} R${command.releaseFrames ?? 1}`);
+          } else if (command.type === "moveCursor") {
+            lines.push(`G0 X${command.x.toFixed(3)} Y${command.y.toFixed(3)} F${FREE_SPEED}`);
+          } else if (command.type === "moveColorCursor") {
+            lines.push(`G0 U${command.x.toFixed(3)} V${command.y.toFixed(3)} F${DRAW_SPEED}`);
+          } else if (command.type === "tracePath") {
+            if (command.points.length === 0) {
+              continue;
+            }
+            lines.push("M241 A1");
+            for (const point of command.points) {
+              const target = traceCanvasToScreenCoord(point.x, point.y);
+              lines.push(`G1 X${target.x.toFixed(3)} Y${target.y.toFixed(3)} F${DRAW_SPEED}`);
+            }
+            lines.push("M241 A0");
+          }
+        }
+
+        lines.push("M30");
+        return lines.join("\n");
+      }
+
+      function summarizeGcode(gcodeText) {
+        const lines = gcodeText ? gcodeText.split("\n").length : 0;
+        const bytes = gcodeText ? new TextEncoder().encode(gcodeText).length : 0;
+        return { lines, bytes };
+      }
+
+      function buildGcodePreview(gcodeText, maxLines = 28) {
+        const lines = gcodeText.split("\n");
+        if (lines.length <= maxLines) {
+          return gcodeText;
+        }
+        return `${lines.slice(0, maxLines).join("\n")}\n... (${lines.length - maxLines} more lines)`;
+      }
+
+      function updateGcodeUi() {
+        dom.gcodeLines.textContent = app.gcodeStats ? app.gcodeStats.lines.toLocaleString() : "--";
+        dom.gcodeSize.textContent = app.gcodeStats ? formatBytes(app.gcodeStats.bytes) : "--";
+        dom.gcodePreview.textContent = app.gcodeText
+          ? buildGcodePreview(app.gcodeText)
+          : "Plan the current image to generate controller G-code.";
+        dom.copyGcodeButton.disabled = !app.gcodeText;
+        dom.downloadGcodeButton.disabled = !app.gcodeText;
+      }
+
+      function clearGcodeExport() {
+        app.gcodeText = "";
+        app.gcodeStats = null;
+        updateGcodeUi();
+      }
 
       function updateControllerUi(input) {
         for (const name of BUTTON_NAMES) {
@@ -2063,6 +2183,7 @@
           renderSourcePreview(null);
           renderTargetPreview();
           updatePaletteSwatches(null);
+          clearGcodeExport();
           dom.startButton.disabled = true;
           return;
         }
@@ -2071,6 +2192,7 @@
         app.processed = quantizeCanvas(scaled, Number(dom.colorCount.value));
         renderTargetPreview();
         updatePaletteSwatches(app.processed.palette);
+        clearGcodeExport();
         dom.startButton.disabled = false;
         app.targetMatch = comparePixels(app.game.pixels, app.processed.target);
       }
@@ -2871,6 +2993,9 @@
         addLogLine("Planning input sequence");
         const commands = await buildPlan(app.processed);
         app.estimatedFrames = estimateFrames(commands);
+        app.gcodeText = buildControllerGcode(commands);
+        app.gcodeStats = summarizeGcode(app.gcodeText);
+        updateGcodeUi();
         app.controller = new PlaybackController(commands);
         app.simulationRunning = true;
         app.plannerBusy = false;
@@ -2922,6 +3047,7 @@
         const image = new Image();
         image.onload = () => {
           app.loadedImage = image;
+          app.loadedFileName = file.name;
           processLoadedImage();
           addLogLine(`Loaded image: ${file.name}`);
           URL.revokeObjectURL(url);
@@ -2952,9 +3078,53 @@
         resetRun();
       });
 
+      dom.copyGcodeButton.addEventListener("click", async () => {
+        if (!app.gcodeText) {
+          return;
+        }
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(app.gcodeText);
+          } else {
+            const textarea = document.createElement("textarea");
+            textarea.value = app.gcodeText;
+            textarea.style.position = "fixed";
+            textarea.style.opacity = "0";
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+          }
+          addLogLine("Copied G-code export");
+        } catch (error) {
+          addLogLine(`Copy failed: ${error.message}`);
+        }
+      });
+
+      dom.downloadGcodeButton.addEventListener("click", () => {
+        if (!app.gcodeText) {
+          return;
+        }
+        const baseName = (app.loadedFileName || "drawing-plan")
+          .replace(/\.[^.]+$/, "")
+          .replace(/[^a-z0-9-_]+/gi, "-")
+          .replace(/^-+|-+$/g, "") || "drawing-plan";
+        const blob = new Blob([app.gcodeText], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = `${baseName}.gcode`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        addLogLine(`Downloaded ${baseName}.gcode`);
+      });
+
       app.playbackSpeed = Number(dom.speedSelect.value);
       renderScreen();
       renderUi();
+      updateGcodeUi();
       addLogLine("Waiting for image");
       requestAnimationFrame(animationLoop);
     })();
